@@ -148,6 +148,35 @@ class Ruinfall3(BossModule module) : Components.LocationTargetedAOEs(module, AID
                 hints.AddForbiddenZone(new AOEShapeRect(100, 6), new(c.Origin.X, 80), activation: c.Activation);
     }
 }
+class FreezingUp(BossModule module) : Components.StayMove(module)
+{
+    public override void OnStatusLose(Actor actor, ActorStatus status)
+    {
+        base.OnStatusLose(actor, status);
+        if (status.ID == (uint)SID.FreezingUp)
+        {
+            ClearState(0);
+        }
+
+    }
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        base.OnCastStarted(caster, spell);
+        if (spell.Action.ID == (uint)AID.FreezingDust)
+        {
+            SetState(0, new(Requirement.Move, Module.CastFinishAt(spell, -1)));
+        }
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        base.AddAIHints(slot, actor, assignment, hints);
+        if (PlayerStates[slot].Requirement == Requirement.Move && WorldState.CurrentTime >= PlayerStates[slot].Activation)
+        {
+            hints.WantJump = true;
+        }
+    }
+};
 class T01ValigarmandaStates : StateMachineBuilder
 {
     public T01ValigarmandaStates(BossModule module) : base(module)
@@ -159,6 +188,7 @@ class T01ValigarmandaStates : StateMachineBuilder
             .ActivateOnEnter<Ruinfall1>()
             .ActivateOnEnter<Ruinfall2>()
             .ActivateOnEnter<Ruinfall3>()
+            .ActivateOnEnter<FreezingUp>()
             .ActivateOnEnter<IceTalon>()
             .ActivateOnEnter<StranglingCoil>();
     }
