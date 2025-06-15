@@ -31,20 +31,31 @@ public sealed class AutoFarm(RotationModuleManager manager, Actor player) : Rota
         if (generalStrategy == GeneralStrategy.Passive)
             return;
 
+        var agroCount = Hints.PotentialTargets.Count(t => t.Actor.AggroPlayer);
+
+        var pullLimit = generalOpt.Priority(float.MaxValue);
+
         var allowPulling = generalStrategy switch
         {
             GeneralStrategy.AllowPull => !Player.InCombat,
-            GeneralStrategy.Aggressive => true,
+            GeneralStrategy.Aggressive => agroCount < pullLimit,
             _ => false
         };
 
         Actor? switchTarget = null; // non-null if we bump any priorities
         (int, float) switchTargetKey = (0, float.MinValue); // priority and negated squared distance
+
+        float distance(Actor a) => float.Max(3f - NormalMovement.MeleeGreedTolerance, Player.DistanceToHitbox(a));
+
         void prioritize(AIHints.Enemy e, int prio)
         {
+            var dist = distance(e.Actor);
+            if (Player.InCombat && dist > 25f)
+                return; // too far away, don't consider
+
             e.Priority = prio;
 
-            var key = (prio, -(e.Actor.Position - Player.Position).LengthSq());
+            var key = (prio, -distance(e.Actor));
             if (key.CompareTo(switchTargetKey) > 0)
             {
                 switchTarget = e.Actor;
@@ -63,7 +74,7 @@ public sealed class AutoFarm(RotationModuleManager manager, Actor player) : Rota
         if (allowPulling)
         {
             if (allowFate && Utils.IsPlayerSyncedToFate(World))
-                foreach (var e in Hints.PotentialTargets.Where(t => t.Actor.FateID == World.Client.ActiveFate.ID))
+                foreach (var e in Hints.PotentialTargets.Where(t => t.Actor.FateID == World.Client.ActiveFate.ID && !t.Actor.AggroPlayer))
                 {
                     var isForlorn = e.Actor.NameID is 6737 or 6738;
                     prioritize(e, isForlorn ? 2 : 1);
@@ -71,7 +82,7 @@ public sealed class AutoFarm(RotationModuleManager manager, Actor player) : Rota
 
             if (allowAll)
                 foreach (var h in Hints.PotentialTargets)
-                    if (!h.Actor.IsStrikingDummy)
+                    if (!h.Actor.IsStrikingDummy && !h.Actor.AggroPlayer)
                         prioritize(h, 1);
         }
 
@@ -87,7 +98,13 @@ public sealed class AutoFarm(RotationModuleManager manager, Actor player) : Rota
         if (switchTarget == null && Player.InCombat)
         {
             var curTargetPrio = Hints.FindEnemy(primaryTarget)?.Priority ?? int.MinValue;
-            switchTarget = ResolveTargetOverride(generalOpt.Value) ?? (curTargetPrio < Hints.HighestPotentialTargetPriority ? Hints.PriorityTargets.MinBy(e => (e.Actor.Position - Player.Position).LengthSq())?.Actor : null);
+            switchTarget = ResolveTargetOverride(generalOpt.Value) ?? (curTargetPrio <= Hints.HighestPotentialTargetPriority ? Hints.PriorityTargets.MinBy(e => distance(e.Actor))?.Actor : null);
+            if (switchTarget != null && primaryTarget != null)
+            {
+                var newTargetPrio = Hints.FindEnemy(switchTarget)?.Priority ?? int.MinValue;
+                if (newTargetPrio == curTargetPrio && distance(switchTarget) >= distance(primaryTarget))
+                    switchTarget = null;
+            }
         }
 
         // if we have target to switch to, do that

@@ -7,6 +7,7 @@ public static class UIStrategyValue
 {
     private static readonly (string Name, float Value)[] PriorityBaselines =
     [
+        ("Exact Value", 0),
         ("Very Low", ActionQueue.Priority.VeryLow),
         ("Low", ActionQueue.Priority.Low),
         ("Medium", ActionQueue.Priority.Medium),

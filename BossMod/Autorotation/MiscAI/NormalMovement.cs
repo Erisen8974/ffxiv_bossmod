@@ -137,7 +137,7 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
                         case RangeStrategy.MeleeGreedLastMomentImplicit:
                             // If the uptime pixel G is lower than the current position G then dont greed INTO danger.
                             // This avoids vibrating on the edge of the attack due to the maxfloat leeway of already being safe being higher than 0.
-                            var uptimeIndex = _navCtx.Map.GridToIndex(_navCtx.Map.WorldToGrid(uptimePosition));
+                            var uptimeIndex = _navCtx.Map.GridToIndex(_navCtx.Map.ClampToGrid(_navCtx.Map.WorldToGrid(uptimePosition)));
                             var currentIndex = _navCtx.ThetaStar._startNodeIndex;
                             if (navi.LeewaySeconds > 0.5)
                             { // Theres still time to move, so we can greed.

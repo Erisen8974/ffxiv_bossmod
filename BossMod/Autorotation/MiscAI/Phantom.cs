@@ -14,6 +14,8 @@ public sealed class PhantomActions(RotationModuleManager manager, Actor player) 
         PhantomOracleRejuvination,
         PhantomBerserker,
         PhantomGeomancerBuffs,
+        PhantomThiefSteal,
+        PhantomThiefVigilance,
     }
 
     public enum PhantomEnabled
@@ -112,6 +114,18 @@ public sealed class PhantomActions(RotationModuleManager manager, Actor player) 
             PhantomID.BattleBell,
             PhantomID.RingingRespite
         );
+        def.Define(Tracks.PhantomThiefSteal).As<PhantomEnabled>("Steal", "Thief: Use Steal")
+        .AddOption(PhantomEnabled.Off, "Disabled")
+        .AddOption(PhantomEnabled.On, "Enabled")
+        .AddAssociatedActions(
+            PhantomID.Steal
+        );
+        def.Define(Tracks.PhantomThiefVigilance).As<PhantomEnabled>("Vigilance", "Thief: Use Vigilance")
+        .AddOption(PhantomEnabled.Off, "Disabled")
+        .AddOption(PhantomEnabled.On, "Enabled")
+        .AddAssociatedActions(
+            PhantomID.Vigilance
+        );
 
         return def;
     }
@@ -153,7 +167,16 @@ public sealed class PhantomActions(RotationModuleManager manager, Actor player) 
         }
 
         if (!Player.InCombat)
+        {
+            if (strategy.Option(Tracks.PhantomThiefVigilance).As<PhantomEnabled>() == PhantomEnabled.On &&
+                PhantomJobLevel(Player, PhantomClass.Thief) >= 3 &&
+                primaryTarget != null &&
+                !primaryTarget.IsAlly)
+            {
+                UseSkill(PhantomID.Vigilance, Player, strategy.Option(Tracks.PhantomThiefVigilance).Priority(ActionQueue.Priority.VeryHigh + 500));
+            }
             return;
+        }
 
         if (predict)
         {
@@ -207,6 +230,11 @@ public sealed class PhantomActions(RotationModuleManager manager, Actor player) 
                     UseSkill(PhantomID.RingingRespite, Player, strategy.Option(Tracks.PhantomGeomancerBuffs).Priority(ActionQueue.Priority.Low + 500));
                 }
             }
+        }
+        if (strategy.Option(Tracks.PhantomThiefSteal).As<PhantomEnabled>() == PhantomEnabled.On &&
+            PhantomJobLevel(Player, PhantomClass.Thief) >= 2)
+        {
+            UseSkill(PhantomID.Steal, primaryTarget, strategy.Option(Tracks.PhantomThiefSteal).Priority(ActionQueue.Priority.High + 500));
         }
     }
 

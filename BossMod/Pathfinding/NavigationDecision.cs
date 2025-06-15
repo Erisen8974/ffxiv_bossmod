@@ -23,7 +23,7 @@ public struct NavigationDecision
     public float TimeToGoal;
 
     public const float ForbiddenZoneCushion = 0; // increase to fatten forbidden zones
-    public const float ActivationTimeCushion = 1; // reduce time between now and activation by this value in seconds; increase for more conservativeness
+    public const float ActivationTimeCushion = .5f; // reduce time between now and activation by this value in seconds; increase for more conservativeness
 
     public static NavigationDecision Build(Context ctx, WorldState ws, AIHints hints, Actor player, float playerSpeed = 6, float forbiddenZoneCushion = ForbiddenZoneCushion)
     {
@@ -34,8 +34,18 @@ public struct NavigationDecision
         if (hints.GoalZones.Count > 0)
             RasterizeGoalZones(ctx.Map, hints.GoalZones);
 
-        if (forbiddenZoneCushion > 0)
-            AvoidForbiddenZone(ctx.Map, forbiddenZoneCushion);
+        if (forbiddenZoneCushion >= .5f)
+            AvoidForbiddenZone(ctx.Map, .5f);
+        if (forbiddenZoneCushion >= 1f)
+            AvoidForbiddenZone(ctx.Map, 1f);
+        if (forbiddenZoneCushion >= 1.5f)
+            AvoidForbiddenZone(ctx.Map, 1.5f);
+        if (forbiddenZoneCushion >= 2f)
+            AvoidForbiddenZone(ctx.Map, 2f);
+        if (forbiddenZoneCushion >= 2.5f)
+            AvoidForbiddenZone(ctx.Map, 2.5f);
+        if (forbiddenZoneCushion >= 3f)
+            AvoidForbiddenZone(ctx.Map, 3f);
 
         // execute pathfinding
         ctx.ThetaStar.Start(ctx.Map, player.Position, 1.0f / playerSpeed);
@@ -47,7 +57,8 @@ public struct NavigationDecision
 
     public static void AvoidForbiddenZone(Map map, float forbiddenZoneCushion)
     {
-        int d = (int)(forbiddenZoneCushion / map.Resolution);
+        int ds = (int)(forbiddenZoneCushion / map.Resolution);
+        int dl = (int)(forbiddenZoneCushion * 1.414f / map.Resolution);
         map.MaxPriority = -1;
         foreach (var (x, y, _) in map.EnumeratePixels())
         {
@@ -56,12 +67,12 @@ public struct NavigationDecision
             {
                 var neighbourhood = new[]
                 {
-                    (x + d, y), (x - d, y), (x, y + d), (x, y - d),
-                    (x + d, y + d), (x - d, y + d), (x + d, y - d), (x - d, y - d)
+                    (x + dl, y), (x - dl, y), (x, y + dl), (x, y - dl),
+                    (x + ds, y + ds), (x - ds, y + ds), (x + ds, y - ds), (x - ds, y - ds)
                 };
                 if (neighbourhood.Any(p => map.PixelMaxG[map.GridToIndex(map.ClampToGrid(p))] != float.MaxValue))
                 {
-                    map.PixelPriority[cellIndex] -= 0.125f;
+                    map.PixelPriority[cellIndex] -= 0.0625f;
                 }
             }
             map.MaxPriority = Math.Max(map.MaxPriority, map.PixelPriority[cellIndex]);
