@@ -299,7 +299,7 @@ public sealed class AIHintsBuilder : IDisposable
         if (omen == null)
         {
             Service.Log($"[AutoHints] No omen data for {data.RowId} '{data.Name}'...");
-            return 0;
+            return 10;
         }
         var path = omen.Value.Path.ToString();
         var pos = path.IndexOf("sircle_", StringComparison.Ordinal);
@@ -311,6 +311,6 @@ public sealed class AIHintsBuilder : IDisposable
             return inner;
 
         Service.Log($"[AutoHints] Can't determine inner radius from omen ({path}/{omen.Value.PathAlly}) for {data.RowId} '{data.Name}'...");
-        return 0;
+        return 10;
     }
 }
