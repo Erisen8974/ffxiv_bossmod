@@ -67,7 +67,7 @@ public sealed class PhantomActions(RotationModuleManager manager, Actor player) 
         .AddOption(PhantomEnabled.Fallback, "FallbackOnly", "Use only if HP is too low for Starfall")
         .AddAssociatedActions(
             PhantomID.Predict,
-            PhantomID.PhantomJudgement
+            PhantomID.PhantomJudgment
         );
         def.Define(Tracks.PhantomOracleClensing).As<PhantomEnabled>("Cleansing", "Oracle: Use Cleansing")
         .AddOption(PhantomEnabled.Off, "Disabled")
@@ -140,7 +140,7 @@ public sealed class PhantomActions(RotationModuleManager manager, Actor player) 
                 strategy.Option(Tracks.PhantomOracleJudgment).As<PhantomEnabled>() == PhantomEnabled.Fallback && Player.PendingHPRatio < .95)
             {
                 if (Player.Statuses.Any(s => s.ID == (uint)PhantomStatus.PredictionJudegment))
-                    UseSkill(PhantomID.PhantomJudgement, Player, strategy.Option(Tracks.PhantomOracleJudgment).Priority(ActionQueue.Priority.Medium + 900));
+                    UseSkill(PhantomID.PhantomJudgment, Player, strategy.Option(Tracks.PhantomOracleJudgment).Priority(ActionQueue.Priority.Medium + 900));
                 predict = true;
             }
             if (strategy.Option(Tracks.PhantomOracleClensing).As<PhantomEnabled>() == PhantomEnabled.On ||

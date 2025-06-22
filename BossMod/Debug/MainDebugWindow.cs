@@ -1,6 +1,7 @@
 ﻿using BossMod.Autorotation;
 using BossMod.Autorotation.xan;
 using Dalamud.Game.ClientState.Objects.Types;
+using Dalamud.Interface.Utility.Raii;
 using Dalamud.Plugin;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
@@ -143,6 +144,10 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
         {
             _debugInput.Draw();
         }
+        if (ImGui.CollapsingHeader("Markers"))
+        {
+            DrawMarkers();
+        }
         if (ImGui.CollapsingHeader("Player attributes"))
         {
             DrawPlayerAttributes();
@@ -180,6 +185,18 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
     private unsafe void DrawStatuses()
     {
         ImGui.TextUnformatted($"Forced movement direction: {MovementOverride.ForcedMovementDirection->Radians()}");
+        ImGui.SameLine();
+        if (ImGui.Button("Add misdirection"))
+        {
+            var player = (Character*)GameObjectManager.Instance()->Objects.IndexSorted[0].Value;
+            player->GetStatusManager()->SetStatus(20, 3909, 20.0f, 100, (GameObjectId)0xE0000000, true);
+        }
+        ImGui.SameLine();
+        if (ImGui.Button("Add thin ice"))
+        {
+            var player = (Character*)GameObjectManager.Instance()->Objects.IndexSorted[0].Value;
+            player->GetStatusManager()->SetStatus(20, 911, 20.0f, 50, (GameObjectId)0xE0000000, true); // param = distance * 10
+        }
 
         ImGui.TextUnformatted($"Player move speed: {ws.Client.MoveSpeed:f2}");
 
@@ -301,6 +318,36 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
         var angle = Angle.FromDirection(new(selfToObj.XZ())) - refAngle;
         var visHalf = Angle.Asin(obj->HitboxRadius / dist);
         ImGui.TextUnformatted($"{kind}: #{obj->ObjectIndex} {Utils.ObjectString(obj->EntityId)} {obj->BaseId}:{obj->GetNameId()}, hb={obj->HitboxRadius} ({visHalf}), dist={dist}, angle={angle} ({Math.Max(0, angle.Abs().Rad - visHalf.Rad).Radians()})");
+    }
+
+    private static readonly string[] FieldMarkers = ["A", "B", "C", "D", "1", "2", "3", "4"];
+
+    private unsafe void DrawMarkers()
+    {
+        var markers = MarkingController.Instance();
+        using (ImRaii.Table("Field", 2))
+        {
+            for (var i = 0; i < markers->FieldMarkers.Length; i++)
+            {
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.Text(FieldMarkers[i]);
+                ImGui.TableNextColumn();
+                ImGui.Text(markers->FieldMarkers[i].Active ? markers->FieldMarkers[i].Position.ToString() : "-");
+            }
+        }
+
+        using (ImRaii.Table("Target", 2))
+        {
+            for (var i = 0; i < markers->Markers.Length; i++)
+            {
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.Text($"{i} ???");
+                ImGui.TableNextColumn();
+                ImGui.Text(markers->Markers[i].ObjectId.ToString("X8"));
+            }
+        }
     }
 
     private unsafe void DrawPlayerAttributes()

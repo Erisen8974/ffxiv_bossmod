@@ -1,4 +1,5 @@
 ﻿using BossMod.BLM;
+using BossMod.Data;
 using FFXIVClientStructs.FFXIV.Client.Game.Gauge;
 using static BossMod.AIHints;
 
@@ -6,7 +7,7 @@ namespace BossMod.Autorotation.xan;
 
 public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<AID, TraitID>(manager, player, PotionType.Intelligence)
 {
-    public enum Track { Scathe = SharedTrack.Buffs, Thunder, Leylines, Triplecast }
+    public enum Track { Scathe = SharedTrack.Buffs, Thunder, Leylines, Triplecast, Iainuki, Zeninage, LLMove }
     public enum ScatheStrategy
     {
         Forbid,
@@ -64,6 +65,12 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
             .AddOption(TriplecastStrategy.Delay, "Delay", "Don't use")
             .AddOption(TriplecastStrategy.Force, "Force", "Use ASAP", effect: 15, defaultPriority: DefaultOGCDPriority)
             .AddAssociatedActions(AID.Triplecast);
+
+        def.AbilityTrack(Track.Iainuki, "Iainuki", "PSAM: Use Iainuki on cooldown");
+        def.AbilityTrack(Track.Zeninage, "Zeninage", "PSAM: Use Zeninage under raid buffs (costs 10,000 gil)");
+
+        def.AbilityTrack(Track.LLMove, "LLMove", "Allow automatic usage of Leylines while moving")
+            .AddAssociatedActions(AID.LeyLines);
 
         return def;
     }
@@ -259,6 +266,19 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
 
         if (Player.InCombat && World.Actors.FirstOrDefault(x => x.OID == 0x179 && x.OwnerID == Player.InstanceID) is Actor ll)
             Hints.GoalZones.Add(p => p.InCircle(ll.Position, 3) ? 0.5f : 0);
+
+        if (strategy.Enabled(Track.Zeninage) && RaidBuffsLeft > GCD && PhantomReadyIn(PhantomID.Zeninage) <= GCD)
+            PushGCD((AID)PhantomID.Zeninage, primaryTarget, GCDPriority.Max);
+
+        if (strategy.Enabled(Track.Iainuki) && (CombatTimer > 10 || RaidBuffsLeft > GCD))
+        {
+            var ready = PhantomReadyIn(PhantomID.Iainuki);
+            if (ready <= GCD)
+                PushGCD((AID)PhantomID.Iainuki, primaryTarget, GCDPriority.Max);
+
+            if (ready <= GCD + GCDLength * 2)
+                Hints.GoalZones.Add(Hints.GoalSingleTarget(primaryTarget.Actor, 8));
+        }
 
         if (Polyglot < MaxPolyglot)
             PushOGCD(AID.Amplifier, Player);
@@ -618,6 +638,9 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
             _ => 0,
         };
 
+        if (!strategy.Enabled(Track.LLMove) && IsMoving)
+            return;
+
         if (prio > 0)
         {
             PushAction(AID.LeyLines, Player, prio, 0);
@@ -651,7 +674,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
                 || Ice > 0 && Hearts > 0 && MP >= 2400;
 
         // fire phase transpose: use TC B3
-        if (Fire > 0 && MP < MinAstralFireMP && CanWeave(AID.Triplecast) && SwiftB3(strategy))
+        if (Fire > 0 && MP < MinAstralFireMP && CanWeave(AID.Triplecast) && SwiftB3(strategy) && AstralSoul < 6)
             return true;
 
         // ice phase transpose

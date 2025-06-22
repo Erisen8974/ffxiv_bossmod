@@ -69,6 +69,13 @@ public sealed class ClientState
     public uint[] ContentKeyValueData = new uint[6]; // used for content-specific persistent player attributes, like bozja resistance rank
     public HateInfo CurrentTargetHate = new(0, new Hate[32]);
 
+    // if an action has SecondaryCostType between 1 and 4, it's considered usable as long as the corresponding timer in this array is >0; the timer is set to 5 when certain ActionEffects are received and ticks down each frame
+    // 1: unknown - referenced in ActionManager code but not present in sheets, included for completeness
+    // 2: block
+    // 3: parry
+    // 4: dodge
+    public float[] ProcTimers = new float[4];
+
     public uint GetContentValue(uint key) => ContentKeyValueData[0] == key
         ? ContentKeyValueData[1]
         : ContentKeyValueData[2] == key
@@ -444,6 +451,21 @@ public sealed class ClientState
             output.Emit(countNonEmpty);
             for (var i = 0; i < countNonEmpty; i++)
                 output.EmitActor(Targets[i].InstanceID).Emit(Targets[i].Enmity);
+        }
+    }
+
+    public Event<OpProcTimersChange> ProcTimersChanged = new();
+    public sealed record class OpProcTimersChange(float[] Value) : WorldState.Operation
+    {
+        public readonly float[] Value = Value;
+        protected override void Exec(WorldState ws)
+        {
+            ws.Client.ProcTimers = Value;
+            ws.Client.ProcTimersChanged.Fire(this);
+        }
+        public override void Write(ReplayRecorder.Output output)
+        {
+            output.EmitFourCC("CLPR"u8).Emit(Value[0]).Emit(Value[1]).Emit(Value[2]).Emit(Value[3]);
         }
     }
 }

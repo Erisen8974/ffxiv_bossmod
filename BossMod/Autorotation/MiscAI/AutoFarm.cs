@@ -45,7 +45,7 @@ public sealed class AutoFarm(RotationModuleManager manager, Actor player) : Rota
         Actor? switchTarget = null; // non-null if we bump any priorities
         (int, float) switchTargetKey = (0, float.MinValue); // priority and negated squared distance
 
-        float distance(Actor a) => float.Max(3f - NormalMovement.MeleeGreedTolerance, Player.DistanceToHitbox(a));
+        float distance(Actor a) => float.Max(3f - NormalMovement.GreedTolerance, Player.DistanceToHitbox(a));
 
         void prioritize(AIHints.Enemy e, int prio)
         {
