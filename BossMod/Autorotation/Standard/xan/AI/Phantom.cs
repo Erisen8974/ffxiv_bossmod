@@ -200,10 +200,10 @@ public class PhantomAI(RotationModuleManager manager, Actor player) : AIBase(man
 
         if (strategy.Enabled(Track.Monk) && Player.InCombat)
         {
-            var prio = strategy.Option(Track.Monk).Priority(ActionQueue.Priority.Low);
+            var prio = strategy.Option(Track.Monk).Priority(ActionQueue.Priority.VeryHigh);
 
             var counterLeft = SelfStatusDetails(PhantomSID.Counterstance, 60).Left;
-            if (counterLeft <= 30 && !Hints.PriorityTargets.Any())
+            if (counterLeft <= 3)
                 UseAction(PhantomID.Counterstance, Player, prio);
 
             if (primaryTarget?.IsAlly == false)
@@ -211,7 +211,7 @@ public class PhantomAI(RotationModuleManager manager, Actor player) : AIBase(man
                 if (UseAction(PhantomID.PhantomKick, primaryTarget, prio))
                     Hints.GoalZones.Add(Hints.GoalAOERect(primaryTarget, 15, 3));
 
-                if (World.Client.ProcTimers[2] > World.Client.AnimationLock && UseAction(PhantomID.OccultCounter, primaryTarget, prio))
+                if (World.Client.ProcTimers[2] > World.Client.AnimationLock && UseAction(PhantomID.OccultCounter, primaryTarget, ActionQueue.Priority.Medium))
                     Hints.GoalZones.Add(Hints.GoalAOECone(primaryTarget, 6, 60.Degrees()));
             }
         }
