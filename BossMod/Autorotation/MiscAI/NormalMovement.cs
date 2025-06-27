@@ -125,7 +125,10 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
                 // it would allow greeding AOE actions as well, but requires modification to NavigationDecision to avoid duplicating work
                 var effectiveRange = Player.Role is Role.Tank or Role.Melee ? MeleeRange : CasterRange;
                 var toDestination = navi.Destination.Value - rangeReference.Position;
-                var maxRange = Player.HitboxRadius + rangeReference.HitboxRadius + effectiveRange - GreedTolerance;
+                var buffer = GreedTolerance;
+                if (rangeReference.TargetID == Player.InstanceID)
+                    buffer = 0; // Im MT so it should be comming over here!
+                var maxRange = Player.HitboxRadius + rangeReference.HitboxRadius + effectiveRange - buffer;
                 var range = toDestination.Length();
                 if (range > maxRange)
                 {
