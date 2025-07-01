@@ -127,7 +127,7 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
                 var toDestination = navi.Destination.Value - rangeReference.Position;
                 var buffer = GreedTolerance;
                 if (rangeReference.TargetID == Player.InstanceID)
-                    buffer = 0; // Im MT so it should be comming over here!
+                    buffer = 0.05f; // Im MT so it should be comming over here!
                 var maxRange = Player.HitboxRadius + rangeReference.HitboxRadius + effectiveRange - buffer;
                 var range = toDestination.Length();
                 if (range > maxRange)
