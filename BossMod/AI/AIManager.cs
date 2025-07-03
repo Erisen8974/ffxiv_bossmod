@@ -41,6 +41,9 @@ sealed class AIManager(RotationModuleManager autorot, ActionManagerEx amex, Move
     {
         Enabled = Config.Enabled;
 
+        if (Enabled)
+            Enabled = false;
+
         if (!WorldState.Party.Members[MasterSlot].IsValid())
             SwitchToIdle();
 
