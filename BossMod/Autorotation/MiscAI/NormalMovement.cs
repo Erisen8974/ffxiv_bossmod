@@ -126,8 +126,8 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
                 var effectiveRange = Player.Role is Role.Tank or Role.Melee ? MeleeRange : CasterRange;
                 var toDestination = navi.Destination.Value - rangeReference.Position;
                 var buffer = GreedTolerance;
-                if (rangeReference.TargetID == Player.InstanceID)
-                    buffer = 0.05f; // Im MT so it should be comming over here!
+                if (rangeReference.TargetID == Player.InstanceID && GCD > 1.5 && rangeReference.CastInfo == null)
+                    buffer = -speed / 1.5f; // Im MT so it should be comming over here. Make sure we can get back!
                 var maxRange = Player.HitboxRadius + rangeReference.HitboxRadius + effectiveRange - buffer;
                 var range = toDestination.Length();
                 if (range > maxRange)

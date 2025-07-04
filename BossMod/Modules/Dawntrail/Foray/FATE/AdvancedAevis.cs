@@ -21,6 +21,7 @@ public enum AID : uint
     Cosmetic_AeroII = 42017, // Boss->self, 3.0s cast, single-target
     Cosmetic_BreathWing1 = 42006, // Boss->self, 5.0s cast, single-target
     Cosmetic_TripleFlight = 42010, // Boss->self, no cast, single-target
+    Cosmetic_QuarryLake = 42002, // Boss->self, 5.0s cast, single-target
 
     ZombieScales = 42000, // Helper2->location, 8.0s cast, range 40 ?-degree cone
     ZombieScales2 = 42001, // Helper2->location, 8.0s cast, range 40 ?-degree cone
@@ -35,12 +36,15 @@ public enum AID : uint
     FlashFoehn_Followup = 42014, // Boss->self, no cast, range 80 width 10 rect
 
     BreathWing_RaidWide = 42007, // Helper2->location, 5.0s cast, range 30 circle
+    QuarryLake = 42003, // Helper2->location, 5.0s cast, range 40 circle
+
 }
 
 class ZombieScales(BossModule module) : Components.GroupedAOEs(module, [AID.ZombieScales, AID.ZombieScales2], new AOEShapeCone(40, 22.5f.Degrees()), maxCasts: 6);
 class AeroII(BossModule module) : Components.StandardAOEs(module, AID.AeroII, new AOEShapeCircle(4));
 class ZombieBreath(BossModule module) : Components.StandardAOEs(module, AID.ZombieBreath, new AOEShapeCone(40, 90.Degrees()));
 class BreathWing(BossModule module) : Components.RaidwideCast(module, AID.BreathWing_RaidWide);
+class QuarryLake(BossModule module) : Components.CastGaze(module, AID.QuarryLake, false, 40);
 
 public class Triple(BossModule module) : Components.GenericAOEs(module)
 {
@@ -165,9 +169,10 @@ class AdvancedAevisStates : StateMachineBuilder
             .ActivateOnEnter<ZombieBreath>()
             .ActivateOnEnter<Triple>()
             .ActivateOnEnter<AeroII>()
+            .ActivateOnEnter<QuarryLake>()
             .ActivateOnEnter<BreathWing>();
     }
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.WIP, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1018, NameID = 13704)]
-public class AdvancedAevis(WorldState ws, Actor primary) : BossModule(ws, primary, new(-48.1f, -320), new ArenaBoundsCircle(20));
+public class AdvancedAevis(WorldState ws, Actor primary) : BossModule(ws, primary, new(-48.1f, -320), new ArenaBoundsCircle(30));
