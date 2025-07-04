@@ -136,6 +136,9 @@ public sealed class AutoFarm(RotationModuleManager manager, Actor player) : Rota
             }
         }
 
+        if (switchTarget != null && primaryTarget != null && switchTarget != primaryTarget)
+            Service.Log($"[Target] switching target from {primaryTarget} {distance(primaryTarget)} to {switchTarget} {distance(switchTarget)}");
+
         // if we have target to switch to, do that
         if (switchTarget != null)
         {

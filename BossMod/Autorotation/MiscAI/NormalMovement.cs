@@ -157,17 +157,11 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
                                 {
                                     // Greed from nearest spot to goal if possible
                                     navi.Destination = uptimePosition;
-                                    Service.Log($"[Greed] Greeding {navi.LeewaySeconds} seconds left, position optimal {uptimePosition}, current {Player.Position}");
                                 }
                                 else if ((Player.Position - rangeReference.Position).LengthSq() <= maxRange * maxRange)
                                 {
                                     // If we are currently in range but the close spot isnt safe, then we can just greed from here
                                     navi.Destination = Player.Position;
-                                    Service.Log($"[Greed] Greeding {navi.LeewaySeconds} seconds left, position current");
-                                }
-                                else
-                                {
-                                    Service.Log($"[Greed] Greeding {navi.LeewaySeconds} seconds left, no safe greed point");
                                 }
                             }
                             break;

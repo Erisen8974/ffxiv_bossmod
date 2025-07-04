@@ -4,7 +4,7 @@ namespace BossMod.Components;
 // voidzone (circle aoe that stays active for some time) centered at each existing object with specified OID, assumed to be persistent voidzone center
 // for moving 'voidzones', the hints can mark the area in front of each source as dangerous
 // TODO: typically sources are either eventobj's with eventstate != 7 or normal actors that are non dead; other conditions are much rarer
-public class PersistentVoidzone(BossModule module, float radius, Func<BossModule, IEnumerable<Actor>> sources, float moveHintLength = 0) : GenericAOEs(module, default, "GTFO from voidzone!")
+public class PersistentVoidzone(BossModule module, float radius, Func<BossModule, IEnumerable<Actor>> sources, float moveHintLength = 0, float moveHintTime = 2) : GenericAOEs(module, default, "GTFO from voidzone!")
 {
     public AOEShapeCircle Shape { get; init; } = new(radius);
     public Func<BossModule, IEnumerable<Actor>> Sources { get; init; } = sources;
@@ -18,7 +18,7 @@ public class PersistentVoidzone(BossModule module, float radius, Func<BossModule
         {
             hints.AddForbiddenZone(Shape.CheckFn(s.Position, s.Rotation));
             if (MoveHintLength > 0)
-                hints.AddForbiddenZone(ShapeContains.Capsule(s.Position, s.Rotation, MoveHintLength, Shape.Radius), WorldState.FutureTime(2));
+                hints.AddForbiddenZone(ShapeContains.Capsule(s.Position, s.Rotation, MoveHintLength, Shape.Radius), WorldState.FutureTime(moveHintTime));
         }
     }
 }
