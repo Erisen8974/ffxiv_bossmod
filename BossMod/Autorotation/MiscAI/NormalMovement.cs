@@ -28,7 +28,7 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
             .AddOption(RangeStrategy.GreedGCDExplicit, "MeleeGreedGCDExplicit", "Stay within effective range until last GCD; ensure destination is reached by the plan entry end", supportedTargets: ActionTargets.Hostile)
             .AddOption(RangeStrategy.GreedLastMomentExplicit, "MeleeGreedLastMomentExplicit", "Stay within effective range until last possible moment; ensure destination is reached by the plan entry end", supportedTargets: ActionTargets.Hostile)
             .AddOption(RangeStrategy.GreedAutomatic, "MeleeGreedAutomatic", "Stay within effective range as long as possible; try to ensure safety is reached before mechanic resolves", supportedTargets: ActionTargets.Hostile)
-            .AddOption(RangeStrategy.GreedAutopull, "MeleeGreedAutomatic", "Maintain Uptime while moving boss to safe zone; try to ensure safety is reached before mechanic resolves", supportedTargets: ActionTargets.Hostile)
+            .AddOption(RangeStrategy.GreedAutopull, "MeleeGreedAutopull", "Maintain Uptime while moving boss to safe zone; try to ensure safety is reached before mechanic resolves", supportedTargets: ActionTargets.Hostile)
             /*.AddOption(RangeStrategy.Drag, "Drag", "Drag the target to specified spot, but maintain gcd uptime", supportedTargets: ActionTargets.Hostile)*/; // TODO
 
         res.Define(Track.Cast).As<CastStrategy>("Cast", "Cast", 10)
@@ -127,7 +127,7 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
                 var effectiveRange = Player.Role is Role.Tank or Role.Melee ? MeleeRange : CasterRange;
                 var toDestination = navi.Destination.Value - rangeReference.Position;
                 var buffer = GreedTolerance;
-                if (rangeReference.TargetID == Player.InstanceID && GCD > 1.5 && rangeReference.CastInfo == null && rangeStrategy == RangeStrategy.GreedAutopull)
+                if (rangeReference.TargetID == Player.InstanceID && GCD > rangeOpt.Priority(1f) && rangeReference.CastInfo == null && rangeStrategy == RangeStrategy.GreedAutopull)
                     buffer = -speed / 1.5f; // Im MT so it should be comming over here. Make sure we can get back!
                 var maxRange = Player.HitboxRadius + rangeReference.HitboxRadius + effectiveRange - buffer;
                 var range = toDestination.Length();
