@@ -16,6 +16,7 @@ public sealed class PhantomActions(RotationModuleManager manager, Actor player) 
         PhantomGeomancerBuffs,
         PhantomThiefSteal,
         PhantomThiefVigilance,
+        PhantomFreelancer,
     }
 
     public enum PhantomEnabled
@@ -126,6 +127,12 @@ public sealed class PhantomActions(RotationModuleManager manager, Actor player) 
         .AddAssociatedActions(
             PhantomID.Vigilance
         );
+        def.Define(Tracks.PhantomFreelancer).As<PhantomEnabled>("Freelancer", "Freelancer: Use Resuscitation")
+        .AddOption(PhantomEnabled.Off, "Disabled")
+        .AddOption(PhantomEnabled.On, "Enabled")
+        .AddAssociatedActions(
+            PhantomID.OccultResuscitation
+        );
 
         return def;
     }
@@ -164,6 +171,12 @@ public sealed class PhantomActions(RotationModuleManager manager, Actor player) 
                     UseSkill(PhantomID.Starfall, Player, strategy.Option(Tracks.PhantomOracleStarfall).Priority(ActionQueue.Priority.Medium + 900));
                 predict = true;
             }
+        }
+
+        if (strategy.Option(Tracks.PhantomFreelancer).As<PhantomEnabled>() == PhantomEnabled.On && PhantomJobLevel(Player, PhantomClass.Freelancer) >= 5)
+        {
+            if (Player.HPRatio < 0.7f)
+                UseSkill(PhantomID.OccultResuscitation, primaryTarget, strategy.Option(Tracks.PhantomFreelancer).Priority(ActionQueue.Priority.VeryHigh + 500));
         }
 
         if (!Player.InCombat)
