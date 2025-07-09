@@ -80,7 +80,7 @@ class BracingDuster1Donut(BossModule module) : Components.StandardAOEs(module, A
 class PuffAndTumbleCircle(BossModule module) : Components.StandardAOEs(module, AID._Weaponskill_PuffAndTumble1, new AOEShapeCircle(4));
 class PuffAndTumble3Circle(BossModule module) : Components.StandardAOEs(module, AID._Weaponskill_PuffAndTumble3, new AOEShapeCircle(4));
 
-class SpotRemoverVoids(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 5, AID._Weaponskill_SpotRemover, m => m.Enemies(OID.Puddles), 5) { }
+class SpotRemoverVoids(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 5, AID._Weaponskill_SpotRemover, m => m.Enemies(OID.Puddles), 0) { }
 
 class SilkieStates : StateMachineBuilder
 {
@@ -108,6 +108,6 @@ class SilkieStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.WIP, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 868, NameID = 11369)]
-public class Silkie(WorldState ws, Actor primary) : BossModule(ws, primary, new(-335, -155), new ArenaBoundsCircle(20));
+public class Silkie(WorldState ws, Actor primary) : BossModule(ws, primary, new(-335, -155), new ArenaBoundsSquare(20));
 
 class SlipperySoapCharge(BossModule module) : Components.ChargeAOEs(module, AID._Weaponskill_SlipperySoap, 5) { }
