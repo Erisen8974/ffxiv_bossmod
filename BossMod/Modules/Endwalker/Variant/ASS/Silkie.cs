@@ -49,23 +49,21 @@ class DustBlusterKnockback(BossModule module) : Components.KnockbackFromCastTarg
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        var activation = Casters.FirstOrDefault()?.CastInfo != null ? Module.CastFinishAt(Casters[0].CastInfo) : WorldState.FutureTime(20);
-        // Single forbidden zone for knockbacks that land outside the arena or in AoEs
-        hints.AddForbiddenZone(p =>
+        foreach (var src in Sources(slot, actor))
         {
-            foreach (var k in Casters)
+            hints.AddForbiddenZone(p =>
             {
-                var dir = (p - k.Position).Normalized();
-                var dest = p + 20 * dir;
+                var dir = (p - src.Origin).Normalized();
+                var dest = p + src.Distance * dir;
                 if (!Module.Arena.Bounds.Contains(dest - Module.Arena.Center))
                     return true;
                 foreach (var comp in Module.Components.OfType<Components.GenericAOEs>())
                     foreach (var aoe in comp.ActiveAOEs(slot, actor))
                         if (aoe.Check(dest))
                             return true;
-            }
-            return false;
-        }, activation);
+                return false;
+            }, src.Activation);
+        }
     }
 }
 class SqueakyLeftCone(BossModule module) : Components.StandardAOEs(module, AID._Weaponskill_SqueakyLeft1, new AOEShapeCone(60, 45.Degrees()));
