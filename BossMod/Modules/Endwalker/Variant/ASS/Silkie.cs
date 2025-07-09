@@ -45,7 +45,7 @@ public enum AID : uint
 }
 
 class TotalWashRaidwide(BossModule module) : Components.RaidwideCast(module, AID._Weaponskill_TotalWash);
-class DustBlusterKnockback(BossModule module) : Components.KnockbackFromCastTarget(module, AID._Weaponskill_DustBluster, 20)
+class DustBlusterKnockback(BossModule module) : Components.KnockbackFromCastTarget(module, AID._Weaponskill_DustBluster, 16)
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
