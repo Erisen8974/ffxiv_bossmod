@@ -1,5 +1,6 @@
 #pragma warning disable CA1707 // Identifiers should not contain underscores
 using System.Numerics;
+using Dalamud.Logging;
 
 namespace BossMod.Endwalker.Variant.ASS.GeryonTheSteer;
 
@@ -33,7 +34,8 @@ public enum AID : uint
 }
 
 class ColossalSlam(BossModule module) : Components.StandardAOEs(module, AID._Weaponskill_ColossalSlam, new AOEShapeCone(60, 30.Degrees()));
-class ColossalCharge(BossModule module) : Components.GroupedAOEs(module, [AID._Weaponskill_ColossalCharge, AID._Weaponskill_ColossalCharge1], new AOEShapeRect(60, 7));
+class ColossalChargeLeft(BossModule module) : Components.ChargeAOEs(module, AID._Weaponskill_ColossalCharge, 7) { }
+class ColossalChargeRight(BossModule module) : Components.ChargeAOEs(module, AID._Weaponskill_ColossalCharge1, 7) { }
 class GigantomillRotating(BossModule module) : Components.GenericAOEs(module, AID._Weaponskill_Gigantomill)
 {
     private readonly List<(WPos pos, Angle rot, DateTime activation)> _aoes = [];
@@ -108,57 +110,26 @@ class RunawayRunoffKnockback(BossModule module) : Components.KnockbackFromCastTa
 }
 class ExplosionPredict(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<(WPos pos, DateTime activation, ulong instanceID, bool isKeg2)> _predicted = [];
+    private readonly List<(ulong instanceID, WPos pos, DateTime activation, bool isKeg2)> _predicted = [];
     private const float DonutInner = 3, DonutOuter = 17, CircleRadius = 15;
     private readonly AOEShapeDonut Donut = new(DonutInner, DonutOuter);
     private readonly AOEShapeCircle Circle = new(CircleRadius);
-    private const float KegKnockDistance = 9; // how far to move keg left/right
+    private const float KegKnockDistance = 9;
     private static bool IsKeg2(Actor actor) => actor.OID == (uint)OID.HelperKeg2;
     private static bool IsKeg(Actor actor) => actor.OID == (uint)OID.HelperKeg;
 
     public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
-        => _predicted.Select(a => new AOEInstance(a.isKeg2 ? Circle : Donut, a.pos, default, a.activation));
+    {
+        foreach (var a in _predicted)
+            yield return new AOEInstance(a.isKeg2 ? Circle : Donut, a.pos, default, a.activation);
+    }
 
     public override void OnActorCreated(Actor actor)
     {
         if (IsKeg(actor) || IsKeg2(actor))
         {
-            _predicted.Add((actor.Position, WorldState.FutureTime(20), actor.InstanceID, IsKeg2(actor)));
-        }
-    }
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if (spell.Action == ActionID.MakeSpell(AID._Weaponskill_Explosion) || spell.Action == ActionID.MakeSpell(AID._Weaponskill_Explosion1))
-        {
-            var idx = _predicted.FindIndex(a => a.instanceID == caster.InstanceID);
-            if (idx >= 0)
-                _predicted[idx] = (caster.Position, Module.CastFinishAt(spell), caster.InstanceID, _predicted[idx].isKeg2);
-        }
-        else if (spell.Action == ActionID.MakeSpell(AID._Weaponskill_ColossalLaunch))
-        {
-            // Swap only for currently tracked kegs
-            for (int i = 0; i < _predicted.Count; ++i)
-                _predicted[i] = (_predicted[i].pos, _predicted[i].activation, _predicted[i].instanceID, !_predicted[i].isKeg2);
-        }
-        else if (spell.Action == ActionID.MakeSpell(AID._Weaponskill_ColossalCharge) || spell.Action == ActionID.MakeSpell(AID._Weaponskill_ColossalCharge1))
-        {
-            // Use the same AOEShapeRect as ColossalCharge
-            var chargeShape = new AOEShapeRect(60, 7);
-            var chargeDir = spell.Rotation;
-            var isLeft = spell.Action == ActionID.MakeSpell(AID._Weaponskill_ColossalCharge);
-            var offsetDir = (isLeft ? 1 : -1) * 90.Degrees();
-            var moveDir = (chargeDir + offsetDir).ToDirection();
-            for (int i = 0; i < _predicted.Count; ++i)
-            {
-                // Check if keg is hit by the charge AoE
-                if (chargeShape.Check(_predicted[i].pos, caster.Position, chargeDir))
-                {
-                    // Move keg left or right by KegKnockDistance
-                    var newPos = _predicted[i].pos + KegKnockDistance * moveDir;
-                    _predicted[i] = (newPos, _predicted[i].activation, _predicted[i].instanceID, _predicted[i].isKeg2);
-                }
-            }
+            _predicted.RemoveAll(a => a.instanceID == actor.InstanceID);
+            _predicted.Add((actor.InstanceID, actor.Position, WorldState.FutureTime(20), IsKeg2(actor)));
         }
     }
 
@@ -167,6 +138,42 @@ class ExplosionPredict(BossModule module) : Components.GenericAOEs(module)
         if (spell.Action == ActionID.MakeSpell(AID._Weaponskill_Explosion) || spell.Action == ActionID.MakeSpell(AID._Weaponskill_Explosion1))
         {
             _predicted.RemoveAll(a => a.instanceID == caster.InstanceID);
+        }
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action == ActionID.MakeSpell(AID._Weaponskill_Explosion) || spell.Action == ActionID.MakeSpell(AID._Weaponskill_Explosion1))
+        {
+            // Use the caster's position directly for the keg at the time the explosion cast starts
+            var idx = _predicted.FindIndex(a => a.instanceID == caster.InstanceID);
+            if (idx >= 0)
+            {
+                bool isKeg2 = spell.Action == ActionID.MakeSpell(AID._Weaponskill_Explosion1);
+                _predicted[idx] = (caster.InstanceID, caster.Position, Module.CastFinishAt(spell), isKeg2);
+            }
+        }
+        else if (spell.Action == ActionID.MakeSpell(AID._Weaponskill_ColossalLaunch))
+        {
+            for (var i = 0; i < _predicted.Count; ++i)
+                _predicted[i] = (_predicted[i].instanceID, _predicted[i].pos, _predicted[i].activation, !_predicted[i].isKeg2);
+        }
+        else if (spell.Action == ActionID.MakeSpell(AID._Weaponskill_ColossalCharge) || spell.Action == ActionID.MakeSpell(AID._Weaponskill_ColossalCharge1))
+        {
+            var chargeLengthFront = 60f;
+            var chargeLengthBack = 0f;
+            var chargeHalfWidth = 7f;
+            var chargeDir = caster.Rotation;
+            var isLeft = spell.Action == ActionID.MakeSpell(AID._Weaponskill_ColossalCharge);
+            var offsetDir = (isLeft ? 1 : -1) * 90.Degrees();
+            var moveDir = (caster.Rotation + offsetDir).ToDirection();
+            var moveVec = moveDir * KegKnockDistance;
+            for (int i = 0; i < _predicted.Count; ++i)
+            {
+                var pos = _predicted[i].pos;
+                if (pos.InRect(caster.Position, chargeDir, chargeLengthFront, chargeLengthBack, chargeHalfWidth))
+                    _predicted[i] = (_predicted[i].instanceID, pos + moveVec, _predicted[i].activation, _predicted[i].isKeg2);
+            }
         }
     }
 }
@@ -183,7 +190,8 @@ class GeryonTheSteerStates : StateMachineBuilder
             .ActivateOnEnter<SubterraneanShudderRaidwide>()
             .ActivateOnEnter<RunawayRunoffKnockback>()
             .ActivateOnEnter<ColossalLaunchRaidwide>()
-            .ActivateOnEnter<ColossalCharge>()
+            .ActivateOnEnter<ColossalChargeLeft>()
+            .ActivateOnEnter<ColossalChargeRight>()
             .ActivateOnEnter<GigantomillRotating>()
             .ActivateOnEnter<ExplodingCatapultRaidwide>();
     }
