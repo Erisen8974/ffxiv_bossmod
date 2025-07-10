@@ -1,6 +1,9 @@
 #pragma warning disable CA1707 // Identifiers should not contain underscores
 using System.Numerics;
+using System.Diagnostics;
 using Dalamud.Logging;
+using BossMod.QuestBattle.Shadowbringers.RoleQuests;
+using BossMod.Endwalker.Alliance.A10RhalgrEmissary;
 
 namespace BossMod.Endwalker.Variant.ASS.GeryonTheSteer;
 
@@ -30,46 +33,48 @@ public enum AID : uint
     _Weaponskill_Gigantomill = 29898, // Boss->self, 8.0s cast, range 72 width 10 cross
     _Weaponskill_Gigantomill1 = 29899, // Boss->self, no cast, range 72 width 10 cross
     _Weaponskill_ColossalCharge1 = 29900, // Boss->location, 8.0s cast, width 14 rect charge
+    _Weaponskill_Gigantomill2 = 29897, // Boss->self, 8.0s cast, range 72 width 10 cross
+    _Weaponskill_ColossalSwing = 29905, // Boss->self, 5.0s cast, range 60 180-degree cone
 
 }
 
 class ColossalSlam(BossModule module) : Components.StandardAOEs(module, AID._Weaponskill_ColossalSlam, new AOEShapeCone(60, 30.Degrees()));
 class ColossalChargeLeft(BossModule module) : Components.ChargeAOEs(module, AID._Weaponskill_ColossalCharge, 7) { }
 class ColossalChargeRight(BossModule module) : Components.ChargeAOEs(module, AID._Weaponskill_ColossalCharge1, 7) { }
-class GigantomillRotating(BossModule module) : Components.GenericAOEs(module, AID._Weaponskill_Gigantomill)
+class GigantomillRotating(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<(WPos pos, Angle rot, DateTime activation)> _aoes = [];
     private const float Length = 72;
     private const float HalfWidth = 5;
     private const int Steps = 4;
-    private const float StepAngle = -90f / (Steps + 1);
     private const float StepDelay = 2.0f; // Adjust if timing is different
     private readonly AOEShapeCross Shape = new(Length, HalfWidth);
 
     public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
-        => _aoes.Select(a => new AOEInstance(Shape, a.pos, a.rot, a.activation));
+        => _aoes.Select(a => new AOEInstance(Shape, a.pos, a.rot, a.activation)).Take(2);
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID._Weaponskill_Gigantomill)
+        if ((AID)spell.Action.ID is AID._Weaponskill_Gigantomill or AID._Weaponskill_Gigantomill2)
         {
             var baseTime = Module.CastFinishAt(spell);
             var pos = caster.Position;
-            var rot = caster.Rotation;
-            for (int i = 0; i <= Steps; ++i)
+            // Always start the first cross at a cardinal (0, 90, 180, 270)
+            var baseRot = 0.Degrees();
+            var isCCW = (AID)spell.Action.ID == AID._Weaponskill_Gigantomill2;
+            var stepAngle = (isCCW ? 1 : -1) * 90f / Steps;
+            for (var i = 0; i <= Steps; ++i)
             {
-                _aoes.Add((pos, rot + (i * StepAngle).Degrees(), baseTime.AddSeconds(i * StepDelay)));
+                var aoeRot = baseRot + (i * stepAngle).Degrees();
+                _aoes.Add((pos, aoeRot, baseTime.AddSeconds(i * StepDelay)));
             }
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID._Weaponskill_Gigantomill1 or AID._Weaponskill_Gigantomill && _aoes.Count > 0)
-        {
-            // Remove the earliest unresolved AOE
+        if ((AID)spell.Action.ID is AID._Weaponskill_Gigantomill1 or AID._Weaponskill_Gigantomill or AID._Weaponskill_Gigantomill2 && _aoes.Count > 0)
             _aoes.RemoveAt(0);
-        }
     }
 }
 class ExplodingCatapultRaidwide(BossModule module) : Components.RaidwideCast(module, AID._Weaponskill_ExplodingCatapult);
@@ -98,13 +103,19 @@ class RunawayRunoffKnockback(BossModule module) : Components.KnockbackFromCastTa
             foreach (var k in Casters)
             {
                 var dir = (p - k.Position).Normalized();
-                var dest = p + 18 * dir;
-                foreach (var comp in Module.Components.OfType<Components.GenericAOEs>())
-                    foreach (var aoe in comp.ActiveAOEs(slot, actor))
-                        if (aoe.Check(dest))
-                            return true;
+                for (var i = 10; i < 18; ++i)
+                {
+                    var dest = p + i * dir;
+                    var isHit = false;
+                    foreach (var comp in Module.Components.OfType<Components.GenericAOEs>())
+                        foreach (var aoe in comp.ActiveAOEs(slot, actor))
+                            if (aoe.Check(dest))
+                                isHit = true;
+                    if (!isHit)
+                        return false;
+                }
             }
-            return false;
+            return true;
         }, activation.AddSeconds(2));
     }
 }
@@ -179,6 +190,7 @@ class ExplosionPredict(BossModule module) : Components.GenericAOEs(module)
 }
 
 class ColossalLaunchRaidwide(BossModule module) : Components.RaidwideCast(module, AID._Weaponskill_ColossalLaunch);
+class ColossalSwing(BossModule module) : Components.StandardAOEs(module, AID._Weaponskill_ColossalSwing, new AOEShapeCone(60, 90.Degrees()));
 
 class GeryonTheSteerStates : StateMachineBuilder
 {
@@ -187,6 +199,7 @@ class GeryonTheSteerStates : StateMachineBuilder
         TrivialPhase()
             .ActivateOnEnter<ExplosionPredict>()
             .ActivateOnEnter<ColossalSlam>()
+            .ActivateOnEnter<ColossalSwing>()
             .ActivateOnEnter<SubterraneanShudderRaidwide>()
             .ActivateOnEnter<RunawayRunoffKnockback>()
             .ActivateOnEnter<ColossalLaunchRaidwide>()
