@@ -100,22 +100,35 @@ class RunawayRunoffKnockback(BossModule module) : Components.KnockbackFromCastTa
         // Forbidden zone for knockbacks that land in AoEs
         hints.AddForbiddenZone(p =>
         {
-            foreach (var k in Casters)
+            for (var i = 10; i <= 18; ++i)
             {
-                var dir = (p - k.Position).Normalized();
-                for (var i = 10; i < 18; ++i)
+                var isHit = false;
+                foreach (var k in Casters)
                 {
+                    var dir = (p - k.Position).Normalized();
                     var dest = p + i * dir;
-                    var isHit = false;
                     foreach (var comp in Module.Components.OfType<Components.GenericAOEs>())
                         foreach (var aoe in comp.ActiveAOEs(slot, actor))
                             if (aoe.Check(dest))
                                 isHit = true;
-                    if (!isHit)
-                        return false;
                 }
+                if (!isHit)
+                    return false;
             }
             return true;
+        }, activation.AddSeconds(1));
+        hints.AddForbiddenZone(p =>
+        {
+            foreach (var k in Casters)
+            {
+                var dir = (p - k.Position).Normalized();
+                var dest = p + 18 * dir;
+                foreach (var comp in Module.Components.OfType<Components.GenericAOEs>())
+                    foreach (var aoe in comp.ActiveAOEs(slot, actor))
+                        if (aoe.Check(dest))
+                            return true;
+            }
+            return false;
         }, activation.AddSeconds(2));
     }
 }
