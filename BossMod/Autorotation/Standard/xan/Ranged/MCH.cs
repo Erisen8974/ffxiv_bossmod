@@ -114,7 +114,7 @@ public sealed class MCH(RotationModuleManager manager, Actor player) : Attackxan
 
         if (primaryTarget != null)
         {
-            var aoebreakpoint = Overheated && Unlocked(AID.AutoCrossbow) ? 4 : 3;
+            var aoebreakpoint = Overheated && Unlocked(AID.AutoCrossbow) ? 6 : 3;
             GoalZoneCombined(strategy, 25, Hints.GoalAOECone(primaryTarget.Actor, 12, 60.Degrees()), AID.SpreadShot, aoebreakpoint);
         }
 
@@ -123,7 +123,7 @@ public sealed class MCH(RotationModuleManager manager, Actor player) : Attackxan
             if (FMFLeft > GCD)
                 PushGCD(AID.FullMetalField, BestRangedAOETarget);
 
-            if (NumAOETargets > 2)
+            if (NumAOETargets >= 6)
                 PushGCD(AID.AutoCrossbow, BestAOETarget);
 
             PushGCD(BestActionUnlocked(AID.BlazingShot, AID.HeatBlast), primaryTarget);
@@ -143,7 +143,7 @@ public sealed class MCH(RotationModuleManager manager, Actor player) : Attackxan
                 if (ReadyIn(AID.ChainSaw) <= GCD)
                     PushGCD(AID.ChainSaw, BestChainsawTarget, 10);
 
-                if (ReadyIn(AID.Bioblaster) <= GCD && NumAOETargets > 1)
+                if (ReadyIn(AID.Bioblaster) <= GCD && NumAOETargets > 3)
                     PushGCD(AID.Bioblaster, BestAOETarget, priority: MaxChargesIn(AID.Bioblaster) <= GCD ? 20 : 2);
 
                 if (ReadyIn(AID.Drill) <= GCD)
@@ -242,7 +242,7 @@ public sealed class MCH(RotationModuleManager manager, Actor player) : Attackxan
         return NextGCD switch
         {
             // AOE actions (TODO review usage, the wording in the balance guide is contradictory)
-            AID.SpreadShot or AID.Scattergun or AID.AutoCrossbow => true,
+            AID.SpreadShot or AID.Scattergun or AID.AutoCrossbow => !Unlocked(AID.ChainSaw),
             // highest potency before 58
             AID.CleanShot => !Unlocked(AID.Drill),
             // highest potency before 26
