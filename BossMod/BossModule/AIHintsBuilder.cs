@@ -138,6 +138,19 @@ public sealed class AIHintsBuilder : IDisposable
         if (inFate)
         {
             hints.PathfindMapCenter = new(_ws.Client.ActiveFate.Center.XZ());
+
+            // if in a big fate with no obstacle map available, reduce resolution to avoid destroying fps
+            // fates don't need precise pathfinding anyway since they are just orange circle simulators
+            if (bitmap == null)
+            {
+                resolution = _ws.Client.ActiveFate.Radius switch
+                {
+                    > 60 => 2,
+                    > 30 => 1,
+                    _ => resolution
+                };
+            }
+
             hints.PathfindMapBounds = (_activeFateBounds ??= new ArenaBoundsCircle(_ws.Client.ActiveFate.Radius, resolution));
             if (e != null && bitmap != null)
             {
@@ -184,25 +197,27 @@ public sealed class AIHintsBuilder : IDisposable
             if (aoe.Caster.IsAlly)
                 continue;
 
-            var target = aoe.Target?.Position ?? aoe.Caster.CastInfo!.LocXZ;
+            var targetPos = aoe.Caster.CastInfo!.LocXZ;
+            if (aoe.Target is { } tar && tar != aoe.Caster)
+                targetPos = tar.Position;
             var rot = aoe.Caster.CastInfo!.Rotation;
             var finishAt = _ws.FutureTime(aoe.Caster.CastInfo.NPCRemainingTime);
             if (aoe.IsCharge)
             {
                 // ignore charge AOEs that target player, as they presumably can't be avoided
                 if (aoe.Target != player)
-                    hints.AddForbiddenZone(ShapeContains.Rect(aoe.Caster.Position, target, ((AOEShapeRect)aoe.Shape).HalfWidth), finishAt, aoe.Caster.InstanceID);
+                    hints.AddForbiddenZone(ShapeContains.Rect(aoe.Caster.Position, targetPos, ((AOEShapeRect)aoe.Shape).HalfWidth), finishAt, aoe.Caster.InstanceID);
             }
             else if (aoe.Shape is AOEShapeCone cone)
             {
                 // not sure how best to adjust cone shape distance to account for quantization error - we just pretend it is being cast from MaxError units "behind" the reported position and increase radius similarly
-                var adjustedSourcePos = target + rot.ToDirection() * -MaxError;
+                var adjustedSourcePos = targetPos + rot.ToDirection() * -MaxError;
                 var adjustedRadius = cone.Radius + MaxError * 2;
                 hints.AddForbiddenZone(ShapeContains.Cone(adjustedSourcePos, adjustedRadius, rot, cone.HalfAngle), finishAt, aoe.Caster.InstanceID);
             }
             else
             {
-                hints.AddForbiddenZone(aoe.Shape, target, rot, finishAt, aoe.Caster.InstanceID);
+                hints.AddForbiddenZone(aoe.Shape, targetPos, rot, finishAt, aoe.Caster.InstanceID);
             }
         }
 
