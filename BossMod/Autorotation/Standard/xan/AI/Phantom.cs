@@ -10,6 +10,7 @@ public class PhantomAI(RotationModuleManager manager, Actor player) : AIBase(man
         Ranger,
         TimeMage,
         Chemist,
+        ChemistRaise,
         Samurai,
         Bard,
         Monk,
@@ -67,6 +68,12 @@ public class PhantomAI(RotationModuleManager manager, Actor player) : AIBase(man
             .AddOption(RaiseStrategy.Never, "Never", "Disabled")
             .AddOption(RaiseStrategy.OutOfCombat, "OutOfCombat", "Out of combat")
             .AddOption(RaiseStrategy.InCombat, "InCombat", "Always")
+            .AddAssociatedActions(PhantomID.Revive);
+
+        def.Define(Track.ChemistRaise).As<RaiseUtil.Targets>("Chemist", "Chemist: Raise Targets")
+            .AddOption(RaiseUtil.Targets.Party, "Party")
+            .AddOption(RaiseUtil.Targets.Alliance, "Alliance")
+            .AddOption(RaiseUtil.Targets.Everyone, "Everyone")
             .AddAssociatedActions(PhantomID.Revive);
 
         def.AbilityTrack(Track.Samurai, "Samurai", "Samurai: Use Iainuki on best AOE target")
@@ -201,7 +208,7 @@ public class PhantomAI(RotationModuleManager manager, Actor player) : AIBase(man
         if (canRaise && !isMidCombo && World.Client.DutyActions.Any(d => d.Action.ID == (uint)PhantomID.Revive))
         {
             var prio = option.Priority(ActionQueue.Priority.High + 500);
-            if (RaiseUtil.FindRaiseTargets(World, RaiseUtil.Targets.Everyone).FirstOrDefault() is { } tar)
+            if (RaiseUtil.FindRaiseTargets(World, strategy.Option(Track.ChemistRaise).As<RaiseUtil.Targets>()).FirstOrDefault() is { } tar)
                 UseAction(PhantomID.Revive, tar, prio);
         }
 
