@@ -49,16 +49,20 @@ class DustBlusterKnockback(BossModule module) : Components.KnockbackFromCastTarg
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
+        var aoes = Module.Components.OfType<Components.GenericAOEs>();
+        var center = Module.Arena.Center;
+        var bounds = Module.Arena.Bounds;
+        var a = actor;
         foreach (var src in Sources(slot, actor))
         {
             hints.AddForbiddenZone(p =>
             {
                 var dir = (p - src.Origin).Normalized();
                 var dest = p + src.Distance * dir;
-                if (!Module.Arena.Bounds.Contains(dest - Module.Arena.Center))
+                if (!bounds.Contains(dest - center))
                     return true;
-                foreach (var comp in Module.Components.OfType<Components.GenericAOEs>())
-                    foreach (var aoe in comp.ActiveAOEs(slot, actor))
+                foreach (var comp in aoes)
+                    foreach (var aoe in comp.ActiveAOEs(slot, a))
                         if (aoe.Check(dest))
                             return true;
                 return false;

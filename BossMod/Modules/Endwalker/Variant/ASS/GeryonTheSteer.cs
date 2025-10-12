@@ -86,13 +86,18 @@ class RunawayRunoffKnockback(BossModule module) : Components.KnockbackFromCastTa
         // Use the actual cast finish time if available, otherwise default to 20 seconds in the future
         var activation = Casters.FirstOrDefault()?.CastInfo != null ? Module.CastFinishAt(Casters[0].CastInfo) : WorldState.FutureTime(20);
         // Forbidden zone for knockbacks that land outside the arena (at activation time)
+        var bounds = Module.Arena.Bounds;
+        var center = Module.Arena.Center;
+        var aoes = Module.Components.OfType<Components.GenericAOEs>();
+        var a = actor;
+        var c = Casters;
         hints.AddForbiddenZone(p =>
         {
-            foreach (var k in Casters)
+            foreach (var k in c)
             {
                 var dir = (p - k.Position).Normalized();
                 var dest = p + 18 * dir;
-                if (!Module.Arena.Bounds.Contains(dest - Module.Arena.Center))
+                if (!bounds.Contains(dest - center))
                     return true;
             }
             return false;
@@ -103,12 +108,12 @@ class RunawayRunoffKnockback(BossModule module) : Components.KnockbackFromCastTa
             for (var i = 10; i <= 18; ++i)
             {
                 var isHit = false;
-                foreach (var k in Casters)
+                foreach (var k in c)
                 {
                     var dir = (p - k.Position).Normalized();
                     var dest = p + i * dir;
-                    foreach (var comp in Module.Components.OfType<Components.GenericAOEs>())
-                        foreach (var aoe in comp.ActiveAOEs(slot, actor))
+                    foreach (var comp in aoes)
+                        foreach (var aoe in comp.ActiveAOEs(slot, a))
                             if (aoe.Check(dest))
                                 isHit = true;
                 }
@@ -119,12 +124,12 @@ class RunawayRunoffKnockback(BossModule module) : Components.KnockbackFromCastTa
         }, activation.AddSeconds(1));
         hints.AddForbiddenZone(p =>
         {
-            foreach (var k in Casters)
+            foreach (var k in c)
             {
                 var dir = (p - k.Position).Normalized();
                 var dest = p + 18 * dir;
-                foreach (var comp in Module.Components.OfType<Components.GenericAOEs>())
-                    foreach (var aoe in comp.ActiveAOEs(slot, actor))
+                foreach (var comp in aoes)
+                    foreach (var aoe in comp.ActiveAOEs(slot, a))
                         if (aoe.Check(dest))
                             return true;
             }
