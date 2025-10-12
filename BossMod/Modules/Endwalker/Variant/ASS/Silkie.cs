@@ -55,10 +55,11 @@ class DustBlusterKnockback(BossModule module) : Components.KnockbackFromCastTarg
         var a = actor;
         foreach (var src in Sources(slot, actor))
         {
+            var source = src;
             hints.AddForbiddenZone(p =>
             {
-                var dir = (p - src.Origin).Normalized();
-                var dest = p + src.Distance * dir;
+                var dir = (p - source.Origin).Normalized();
+                var dest = p + source.Distance * dir;
                 if (!bounds.Contains(dest - center))
                     return true;
                 foreach (var comp in aoes)
