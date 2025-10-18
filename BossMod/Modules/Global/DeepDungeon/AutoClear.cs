@@ -1,5 +1,4 @@
 ﻿using BossMod.Pathfinding;
-using Dalamud.Bindings.ImGui;
 using System.Data.SQLite;
 using System.IO;
 using System.Reflection;
@@ -35,7 +34,7 @@ enum SID : uint
     AutoHealPenalty = 1097,
 }
 
-public abstract class AutoClear : ZoneModule
+public abstract partial class AutoClear : ZoneModule
 {
     public readonly int LevelCap;
 
@@ -47,9 +46,9 @@ public abstract class AutoClear : ZoneModule
         // EO
         1541, 1542, 1543, 1544, 1545, 1546, 1547, 1548, 1549, 1550, 1551, 1552, 1553, 1554,
         // PT
-        1884, 1885, 1886, 1887, 1888
+        1881, 1882, 1883, 1884, 1885, 1886, 1887, 1888, 1889, 1890, 1906, 1907
     ];
-    public static readonly HashSet<uint> RevealedTrapOIDs = [0x1EA08E, 0x1EA08F, 0x1EA090, 0x1EA091, 0x1EA092, 0x1EA9A0, 0x1EB864];
+    public static readonly HashSet<uint> RevealedTrapOIDs = [0x1EA08E, 0x1EA08F, 0x1EA090, 0x1EA091, 0x1EA092, 0x1EA9A0, 0x1EB864, 0x1EBEDB];
 
     protected readonly List<(Actor Source, float Inner, float Outer, Angle HalfAngle)> Donuts = [];
     protected readonly List<(Actor Source, float Radius)> Circles = [];
@@ -86,7 +85,7 @@ public abstract class AutoClear : ZoneModule
 
     private int Kills;
     private int DesiredRoom;
-    private bool BetweenFloors;
+    private bool BetweenFloors = true;
 
     protected struct PlayerImmuneState
     {
@@ -126,9 +125,12 @@ public abstract class AutoClear : ZoneModule
             ws.Actors.EventObjectAnimation.Subscribe(OnEObjAnim),
             ws.DeepDungeon.MapDataChanged.Subscribe(_ =>
             {
-                BetweenFloors = false;
-                if (Walls.Count == 0)
+                if (BetweenFloors)
+                {
                     LoadWalls();
+                    LoadGeometry();
+                }
+                BetweenFloors = false;
             })
         );
 
@@ -211,8 +213,13 @@ public abstract class AutoClear : ZoneModule
             case 7256: // sight used
                 _trapsHidden = false;
                 break;
+            case 9208: // magicite overcap
             case 10287: // demiclone overcap
                 _lastChestMagicite = true;
+                break;
+            case 11251:
+                if (op.Args[1] == 4) // mazeroot balm used, reveals map and traps
+                    _trapsHidden = false;
                 break;
         }
     }
@@ -291,7 +298,8 @@ public abstract class AutoClear : ZoneModule
 
             return Palace.DungeonId switch
             {
-                DeepDungeonState.DungeonType.HOH or DeepDungeonState.DungeonType.EO or DeepDungeonState.DungeonType.PT => Palace.Floor >= 7, // per-dungeon gimmick items start dropping on floor 7
+                DeepDungeonState.DungeonType.PT => true,
+                DeepDungeonState.DungeonType.HOH or DeepDungeonState.DungeonType.EO => Palace.Floor >= 7, // per-dungeon gimmick items start dropping on floor 7
                 _ => false,
             };
         }
@@ -303,74 +311,19 @@ public abstract class AutoClear : ZoneModule
 
     public sealed override string WindowName() => "VBM DD minimap###VBMDD";
 
-    public override void DrawExtra()
+    private bool CanAutoUse(PomanderID p, Actor player)
     {
-        var player = World.Party.Player();
-        var playerSlot = Array.FindIndex(Palace.Party, p => p.EntityId == player?.InstanceID);
-        var targetRoom = new Minimap(Palace, player?.Rotation ?? default, DesiredRoom, Math.Max(0, playerSlot)).Draw();
-        if (targetRoom >= 0)
-            DesiredRoom = targetRoom;
+        if (Palace.Party.Count(p => p.EntityId > 0) > 1)
+            return false;
 
-        ImGui.Text($"Kills: {Kills}");
+        if (!_config.AutoPoms[(int)p])
+            return false;
 
-        var maxPull = _config.MaxPull;
+        if (p is PomanderID.Purity or PomanderID.ProtoPurity)
+            return player.FindStatus(1087) != null;
 
-        ImGui.SetNextItemWidth(200);
-        if (ImGui.DragInt("Max mobs to pull", ref maxPull, 0.05f, 0, 15))
-        {
-            _config.MaxPull = maxPull;
-            _config.Modified.Fire();
-        }
-
-        if (ImGui.Button("Reload obstacles"))
-        {
-            _obstacles.Dispose();
-            _obstacles = new(World);
-        }
-
-        if (player == null)
-            return;
-
-        var (entry, data) = _obstacles.Find(player.PosRot.XYZ());
-        if (entry == null)
-        {
-            ImGui.SameLine();
-            UIMisc.HelpMarker(() => "Obstacle map missing for floor!", Dalamud.Interface.FontAwesomeIcon.ExclamationTriangle);
-        }
-
-        if (data != null && data.PixelSize != 0.5f)
-        {
-            ImGui.SameLine();
-            UIMisc.HelpMarker(() => $"Wrong resolution for map; should be 0.5, got {data.PixelSize}", Dalamud.Interface.FontAwesomeIcon.ExclamationTriangle);
-        }
-
-        if (ImGui.Button("Set closest trap location as ignored"))
-        {
-            var pos = _trapsCurrentZone.Except(ProblematicTrapLocations).MinBy(t => (t - player.Position).LengthSq()).Rounded(0.1f);
-            ProblematicTrapLocations.Add(pos);
-            IgnoreTraps.Add(pos);
-        }
+        return true;
     }
-
-    private readonly List<PomanderID> AutoUsable = [
-        PomanderID.Steel,
-        PomanderID.Strength,
-        PomanderID.Sight,
-        PomanderID.Raising,
-        PomanderID.Fortune,
-        PomanderID.Concealment,
-        PomanderID.Affluence,
-        PomanderID.Frailty,
-        PomanderID.ProtoSteel,
-        PomanderID.ProtoStrength,
-        PomanderID.ProtoSight,
-        PomanderID.ProtoRaising,
-        PomanderID.ProtoLethargy,
-        PomanderID.ProtoFortune,
-        PomanderID.ProtoAffluence
-    ];
-
-    private bool CanAutoUse(PomanderID p) => Palace.Party.Count(p => p.EntityId > 0) == 1 && AutoUsable.Contains(p);
 
     private void IterAndExpire<T>(List<T> items, Func<T, bool> expire, Action<T> action, Action<T>? onRemove = null)
     {
@@ -414,13 +367,17 @@ public abstract class AutoClear : ZoneModule
 
         DrawAOEs(playerSlot, player, hints);
 
-        if (!_config.Enable)
-            return;
-
-        var canNavigate = _config.MaxPull == 0 ? !player.InCombat : hints.PotentialTargets.Count(t => t.Actor.AggroPlayer && !t.Actor.IsDeadOrDestroyed) < _config.MaxPull;
+        var canNavigate = _config.MaxPull == 0 ? !player.InCombat : hints.PotentialTargets.Count(t => t.Actor.AggroPlayer && !t.Actor.IsDeadOrDestroyed) <= _config.MaxPull;
 
         if (canNavigate)
             HandleFloorPathfind(player, hints);
+
+        if (_config.ForbidDOTs)
+            foreach (var hpt in hints.PotentialTargets)
+                hpt.ForbidDOTs = true;
+
+        if (!_config.Enable)
+            return;
 
         CalculateExtraHints(playerSlot, player, hints);
 
@@ -438,7 +395,7 @@ public abstract class AutoClear : ZoneModule
         {
             if (_chestContentsGold.TryGetValue(a.InstanceID, out var pid) && Palace.GetPomanderState(pid).Count == 3 && a.IsTargetable)
             {
-                if (CanAutoUse(pid))
+                if (CanAutoUse(pid, player))
                     pomanderToUseHere ??= pid;
                 continue;
             }
@@ -501,7 +458,9 @@ public abstract class AutoClear : ZoneModule
             }
         }
 
-        if (!isStunned && pomanderToUseHere is PomanderID p2 && player.FindStatus(SID.ItemPenalty) == null)
+        var playerInAOE = hints.ForbiddenZones.Any(p => p.containsFn(player.Position));
+
+        if (!isStunned && pomanderToUseHere is PomanderID p2 && player.FindStatus(SID.ItemPenalty) == null && !playerInAOE)
             hints.ActionsToExecute.Push(new ActionID(ActionType.Pomander, (uint)p2), null, ActionQueue.Priority.VeryHigh);
 
         Actor? wantCoffer = null;
@@ -527,7 +486,8 @@ public abstract class AutoClear : ZoneModule
         {
             wantCoffer = xxx;
             hints.GoalZones.Add(hints.GoalSingleTarget(xxx.Position, 25));
-            hints.InteractWithTarget ??= coffer;
+            if (!playerInAOE)
+                hints.InteractWithTarget ??= coffer;
         }
 
         if (revealedTraps.Count > 0)
@@ -665,7 +625,10 @@ public abstract class AutoClear : ZoneModule
 
     private void HandleFloorPathfind(Actor player, AIHints hints)
     {
-        var playerRoom = Palace.Party[0].Room;
+        var slot = Array.FindIndex(Palace.Party, p => p.EntityId == player.InstanceID);
+        if (slot < 0)
+            return;
+        var playerRoom = Palace.Party[slot].Room;
 
         if (DesiredRoom == playerRoom || DesiredRoom == 0)
         {
@@ -709,51 +672,6 @@ public abstract class AutoClear : ZoneModule
             };
             return improvement > 10 ? 10 : 0;
         });
-    }
-
-    private void LoadWalls()
-    {
-        Service.Log($"loading walls for current floor...");
-        Walls.Clear();
-        var floorset = Palace.Floor / 10;
-        var key = $"{(int)Palace.DungeonId}.{floorset + 1}";
-        if (!LoadedFloors.TryGetValue(key, out var floor))
-        {
-            Service.Log($"unable to load floorset {key}");
-            return;
-        }
-        Tileset<Wall> tileset;
-        switch (Palace.Progress.Tileset)
-        {
-            case 0:
-                tileset = floor.RoomsA;
-                break;
-            case 1:
-                tileset = floor.RoomsB;
-                break;
-            case 2:
-                Service.Log($"hall of fallacies - nothing to do");
-                return;
-            default:
-                Service.Log($"unrecognized tileset number {Palace.Progress.Tileset}");
-                return;
-        }
-        foreach (var (room, i) in Palace.Rooms.Select((m, i) => (m, i)))
-        {
-            if (room > 0)
-            {
-                var roomdata = tileset[i];
-                RoomCenters.Add(roomdata.Center.Position);
-                if (roomdata.North != default && !room.HasFlag(RoomFlags.ConnectionN))
-                    Walls.Add((roomdata.North, false));
-                if (roomdata.South != default && !room.HasFlag(RoomFlags.ConnectionS))
-                    Walls.Add((roomdata.South, false));
-                if (roomdata.East != default && !room.HasFlag(RoomFlags.ConnectionE))
-                    Walls.Add((roomdata.East, true));
-                if (roomdata.West != default && !room.HasFlag(RoomFlags.ConnectionW))
-                    Walls.Add((roomdata.West, true));
-            }
-        }
     }
 
     protected void AddLOSFromTerrain(Actor Source, float Range)
