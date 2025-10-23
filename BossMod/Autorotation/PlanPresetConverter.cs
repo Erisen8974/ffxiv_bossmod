@@ -95,6 +95,36 @@ public static class PlanPresetConverter
 
             return j;
         });
+
+        res.Converters.Add((j, _, _) =>
+        {
+            foreach (var m in EnumerateEntriesModules(j, plan))
+            {
+                if (m.TryGetPropertyValue("BossMod.Autorotation.MiscAI.AutoTarget", out var node))
+                {
+                    foreach (var obj in node!.AsArray())
+                    {
+                        if (obj?["Track"]?.AsValue().GetValue<string>() == "General" && obj?["Option"]?.AsValue().GetValue<string>() == "Conservative")
+                            obj["Option"] = "Aggressive";
+                    }
+                }
+            }
+
+            return j;
+        });
+
+        // fix module name
+        res.Converters.Add((j, _, _) =>
+        {
+            if (plan)
+            {
+                if (j["Encounter"]?.AsValue().GetValue<string>() == "BossMod.Dawntrail.Savage.M08SHowlingBlade.M08SHowlingBlade")
+                    j["Encounter"] = "BossMod.Dawntrail.Savage.RM08SHowlingBlade.RM08SHowlingBlade";
+            }
+
+            return j;
+        });
+
         return res;
     }
 
