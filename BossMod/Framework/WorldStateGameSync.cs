@@ -37,6 +37,8 @@ sealed class WorldStateGameSync : IDisposable
     private readonly Dictionary<ulong, Vector3> _lastCastPositions = []; // unfortunately, game only saves cast location for area-targeted spells
     private readonly Actor?[] _actorsByIndex = new Actor?[ObjectTableSize];
 
+    private bool _needInventoryUpdate = true;
+
     private readonly Network.OpcodeMap _opcodeMap = new();
     private readonly Network.PacketInterceptor _interceptor = new();
     private readonly Network.PacketDecoderGame _decoder = new();
@@ -83,8 +85,10 @@ sealed class WorldStateGameSync : IDisposable
     private readonly unsafe delegate* unmanaged<ContainerInterface*, float> _calculateMoveSpeedMulti;
 
     private unsafe delegate void ApplyKnockbackDelegate(Character* thisPtr, float a2, float a3, float a4, byte a5, int a6);
-
     private readonly Hook<ApplyKnockbackDelegate> _applyKnockbackHook;
+
+    private unsafe delegate void InventoryAckDelegate(uint a1, void* a2);
+    private readonly Hook<InventoryAckDelegate> _inventoryAckHook;
 
     public unsafe WorldStateGameSync(WorldState ws, ActionManagerEx amex)
     {
@@ -172,10 +176,15 @@ sealed class WorldStateGameSync : IDisposable
             _applyKnockbackHook.Enable();
             Service.Log($"[WSG] ApplyKnockback address = {_applyKnockbackHook.Address:X}");
         }
+
+        _inventoryAckHook = Service.Hook.HookFromSignature<InventoryAckDelegate>("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8D 57 10 41 8B CE E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8B D7", InventoryAckDetour);
+        _inventoryAckHook.Enable();
+        Service.Log($"[WSG] InventoryAck address = {_inventoryAckHook.Address:X}");
     }
 
     public void Dispose()
     {
+        _inventoryAckHook.Dispose();
         _applyKnockbackHook.Dispose();
         _processLegacyMapEffectHook.Dispose();
         _processMapEffect1Hook.Dispose();
@@ -741,7 +750,7 @@ sealed class WorldStateGameSync : IDisposable
             _ws.Execute(new ClientState.OpClassJobLevelsChange(levels.ToArray()));
 
         var curFate = FateManager.Instance()->CurrentFate;
-        ClientState.Fate activeFate = curFate != null ? new(curFate->FateId, curFate->Location, curFate->Radius) : default;
+        ClientState.Fate activeFate = curFate != null ? new(curFate->FateId, curFate->Location, curFate->Radius, curFate->Progress, curFate->HandInCount) : default;
         if (_ws.Client.ActiveFate != activeFate)
             _ws.Execute(new ClientState.OpActiveFateChange(activeFate));
 
@@ -784,6 +793,38 @@ sealed class WorldStateGameSync : IDisposable
         var timers = actionManager->ProcTimers[1..];
         if (!MemoryExtensions.SequenceEqual(timers, _ws.Client.ProcTimers))
             _ws.Execute(new ClientState.OpProcTimersChange(timers.ToArray()));
+
+        void updateQuantity(uint itemId, uint count)
+        {
+            if (itemId == 0)
+                return;
+            if (count != _ws.Client.GetItemQuantity(itemId))
+                _ws.Execute(new ClientState.OpInventoryChange(itemId, count));
+        }
+
+        if (_needInventoryUpdate)
+        {
+            var im = InventoryManager.Instance();
+            // update tracked items
+            foreach (var id in ActionDefinitions.Instance.SupportedItems)
+            {
+                var count = im->GetInventoryItemCount(id % 500000, id > 1000000, checkEquipped: false, checkArmory: false);
+                updateQuantity(id, (uint)count);
+            }
+
+            // update all key items (smaller set)
+            var ic = im->GetInventoryContainer(InventoryType.KeyItems);
+            if (ic->IsLoaded)
+            {
+                for (var i = 0; i < ic->Size; i++)
+                {
+                    var keyItem = ic->GetInventorySlot(i);
+                    if (keyItem != null)
+                        updateQuantity(keyItem->GetItemId(), keyItem->GetQuantity());
+                }
+            }
+            _needInventoryUpdate = false;
+        }
     }
 
     private unsafe void UpdateDeepDungeon()
@@ -978,6 +1019,9 @@ sealed class WorldStateGameSync : IDisposable
             case Network.ServerIPC.ActorControlCategory.DirectorUpdate:
                 _globalOps.Add(new WorldState.OpDirectorUpdate(p1, p2, p3, p4, p5, p6));
                 break;
+            case Network.ServerIPC.ActorControlCategory.FateReceiveItem:
+                _needInventoryUpdate = true;
+                break;
         }
     }
 
@@ -1063,5 +1107,11 @@ sealed class WorldStateGameSync : IDisposable
         _globalOps.Add(new WorldState.OpLegacyMapEffect(seq, unk, new Span<byte>(data, (int)length).ToArray()));
 
         return res;
+    }
+
+    private unsafe void InventoryAckDetour(uint a1, void* a2)
+    {
+        _inventoryAckHook.Original(a1, a2);
+        _needInventoryUpdate = true;
     }
 }

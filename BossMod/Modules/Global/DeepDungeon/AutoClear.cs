@@ -1,8 +1,6 @@
 ﻿using BossMod.Pathfinding;
 using System.Data.SQLite;
 using System.IO;
-using System.Reflection;
-using System.Text.Json;
 using static FFXIVClientStructs.FFXIV.Client.Game.InstanceContent.InstanceContentDeepDungeon;
 
 namespace BossMod.Global.DeepDungeon;
@@ -46,14 +44,14 @@ public abstract partial class AutoClear : ZoneModule
         // EO
         1541, 1542, 1543, 1544, 1545, 1546, 1547, 1548, 1549, 1550, 1551, 1552, 1553, 1554,
         // PT
-        1881, 1882, 1883, 1884, 1885, 1886, 1887, 1888, 1889, 1890, 1906, 1907
+        1881, 1882, 1883, 1884, 1885, 1886, 1887, 1888, 1889, 1890, 1891, 1892, 1893, 1906, 1907, 1908
     ];
     public static readonly HashSet<uint> RevealedTrapOIDs = [0x1EA08E, 0x1EA08F, 0x1EA090, 0x1EA091, 0x1EA092, 0x1EA9A0, 0x1EB864, 0x1EBEDB];
 
     protected readonly List<(Actor Source, float Inner, float Outer, Angle HalfAngle)> Donuts = [];
     protected readonly List<(Actor Source, float Radius)> Circles = [];
     protected readonly List<(Actor Source, float Radius)> KnockbackZones = [];
-    protected readonly List<(Actor Source, AOEShape Zone)> Voidzones = [];
+    protected readonly List<(Actor Source, AOEShape Zone, int Counter)> Voidzones = [];
     private readonly List<Gaze> Gazes = [];
     protected readonly List<Actor> Interrupts = [];
     protected readonly List<Actor> Stuns = [];
@@ -136,8 +134,8 @@ public abstract partial class AutoClear : ZoneModule
 
         _trapsCurrentZone = PalacePalInterop.GetTrapLocationsForZone(ws.CurrentZone);
 
-        LoadedFloors = JsonSerializer.Deserialize<Dictionary<string, Floor<Wall>>>(GetEmbeddedResource("Walls.json"))!;
-        ProblematicTrapLocations = JsonSerializer.Deserialize<List<WPos>>(GetEmbeddedResource("BadTraps.json"))!;
+        LoadedFloors = Utils.LoadFromAssembly<Dictionary<string, Floor<Wall>>>("BossMod.Modules.Global.DeepDungeon.Walls.json");
+        ProblematicTrapLocations = Utils.LoadFromAssembly<List<WPos>>("BossMod.Modules.Global.DeepDungeon.BadTraps.json");
 
         IgnoreTraps.AddRange(ProblematicTrapLocations);
     }
@@ -266,6 +264,7 @@ public abstract partial class AutoClear : ZoneModule
     protected void AddGaze(Actor Source, AOEShape Shape) => Gazes.Add(new(Source, Shape));
     protected void AddGaze(Actor Source, float Radius) => AddGaze(Source, new AOEShapeCircle(Radius));
     protected void AddDonut(Actor Source, float Inner, float Outer, Angle? HalfAngle = null) => Donuts.Add((Source, Inner, Outer, HalfAngle ?? 180.Degrees()));
+    protected void AddVoidzone(Actor Source, AOEShape Shape, int Counter = 0) => Voidzones.Add((Source, Shape, Counter));
 
     protected void AddLOS(Actor Source, float Range)
     {
@@ -504,33 +503,23 @@ public abstract partial class AutoClear : ZoneModule
             _ => false
         };
 
-        if (player.InCombat || World.Actors.Find(player.TargetID) is Actor t2 && !t2.IsAlly)
+        if (player.InCombat)
             return;
-
-        Actor? bestTarget = null;
-
-        void pickBetterTarget(Actor t)
-        {
-            if (player.DistanceToHitbox(t) < player.DistanceToHitbox(bestTarget))
-                bestTarget = t;
-        }
 
         foreach (var pp in hints.PotentialTargets)
         {
             // enemy is petrified, any damage will kill
             if (pp.Actor.FindStatus(SID.StoneCurse)?.ExpireAt > World.FutureTime(1.5f))
-                pickBetterTarget(pp.Actor);
+                pp.Priority = 0;
 
             // pomander of storms was used, enemy can't autoheal; any damage will kill
             else if (pp.Actor.FindStatus(SID.AutoHealPenalty) != null && pp.Actor.HPMP.CurHP < 10)
-                pickBetterTarget(pp.Actor);
+                pp.Priority = 0;
 
             // if player does not have a target, prioritize everything so that AI picks one - skip dangerous enemies
             else if (shouldTargetMobs && !pp.Actor.Statuses.Any(s => IsDangerousOutOfCombatStatus(s.ID)))
-                pickBetterTarget(pp.Actor);
+                pp.Priority = 0;
         }
-
-        hints.ForcedTarget = bestTarget;
     }
 
     private void DrawAOEs(int playerSlot, Actor player, AIHints hints)
@@ -729,8 +718,6 @@ public abstract partial class AutoClear : ZoneModule
 
         return false;
     }
-
-    private Stream GetEmbeddedResource(string name) => Assembly.GetExecutingAssembly().GetManifestResourceStream($"BossMod.Modules.Global.DeepDungeon.{name}") ?? throw new InvalidDataException($"Missing embedded resource {name}");
 }
 
 static class PalacePalInterop
