@@ -59,13 +59,9 @@ public sealed class AutoTarget(RotationModuleManager manager, Actor player) : Ro
         (int, float) bestTargetKey = (0, float.MinValue); // priority and negated squared distance
         void prioritize(AIHints.Enemy e, int prio)
         {
-            // always ignore dying enemies
-            if (e.Priority == AIHints.Enemy.PriorityPointless)
-                return;
-
             e.Priority = prio;
 
-            var key = (prio, -(e.Actor.Position - Player.Position).LengthSq());
+            var key = (e.Priority, -(e.Actor.Position - Player.Position).LengthSq());
             if (key.CompareTo(bestTargetKey) > 0)
             {
                 bestTarget = e.Actor;
@@ -139,7 +135,7 @@ public sealed class AutoTarget(RotationModuleManager manager, Actor player) : Ro
         };
 
         // if we have target to switch to, do that
-        if (changeTarget && bestTarget != null)
+        if (changeTarget)
             primaryTarget = Hints.ForcedTarget = bestTarget;
     }
 }
