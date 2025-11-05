@@ -238,6 +238,7 @@ public sealed class ActionDefinitions : IDisposable
         RegisterItem(IDPotionInt);
         RegisterItem(IDPotionMnd);
 
+        // TODO: expected anim lock says 0.5
         RegisterItem(IDPotionSustaining, 1.1f);
         RegisterItem(IDPotionMax, 1.1f);
         RegisterItem(IDPotionEmpyrean, 1.1f);
@@ -370,7 +371,7 @@ public sealed class ActionDefinitions : IDisposable
         if (from != to && hints.PathfindMapBounds is ArenaBoundsCustom)
         {
             var len = (to - from).Length();
-            var distToNearestWall = hints.PathfindMapBounds.IntersectRay(from - center, to - from);
+            var distToNearestWall = hints.PathfindMapBounds.IntersectRay(from - center, (to - from).Normalized());
             if (distToNearestWall >= 0 && distToNearestWall < len)
                 return true;
         }

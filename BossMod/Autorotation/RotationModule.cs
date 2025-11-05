@@ -40,8 +40,6 @@ public sealed record class RotationModuleDefinition(string DisplayName, string D
     public readonly BitMask Classes = Classes;
     public readonly List<StrategyConfig> Configs = [];
 
-    public DefineRef Define<Index>(Index expectedIndex) where Index : Enum => new(Configs, (int)(object)expectedIndex);
-
     // unfortunately, c# doesn't support partial type inference, and forcing user to spell out track enum twice is obnoxious, so here's the hopefully cheap solution
     public readonly ref struct DefineRef(List<StrategyConfig> configs, int index)
     {
@@ -57,10 +55,10 @@ public sealed record class RotationModuleDefinition(string DisplayName, string D
 
     public readonly ref struct ConfigRef<Index>(StrategyConfigTrack config) where Index : Enum
     {
-        public ConfigRef<Index> AddOption(Index expectedIndex, string internalName, string displayName = "", float cooldown = 0, float effect = 0, ActionTargets supportedTargets = ActionTargets.None,
-            int minLevel = 1, int maxLevel = int.MaxValue, float defaultPriority = ActionQueue.Priority.Medium)
+        public ConfigRef<Index> AddOption(Index expectedIndex, string displayName = "", float cooldown = 0, float effect = 0, ActionTargets supportedTargets = ActionTargets.None, int minLevel = 1, int maxLevel = int.MaxValue, float defaultPriority = ActionQueue.Priority.Medium, string? internalNameOverride = null)
         {
             var idx = (int)(object)expectedIndex;
+            var internalName = internalNameOverride ?? expectedIndex.ToString();
             if (config.Options.Count != idx)
                 throw new ArgumentException($"Unexpected index value for {internalName}: expected {expectedIndex} ({idx}), got {config.Options.Count}");
             config.Options.Add(new(internalName, displayName)
@@ -87,6 +85,26 @@ public sealed record class RotationModuleDefinition(string DisplayName, string D
                 config.AssociatedActions.Add(ActionID.MakeSpell(aid));
             return this;
         }
+    }
+
+    public DefineRef Define<Index>(Index expectedIndex) where Index : Enum => new(Configs, (int)(object)expectedIndex);
+
+    public void DefineFloat<Index>(Index expectedIndex, string displayName = "", float minValue = 0, float maxValue = float.MaxValue, float uiPriority = 0) where Index : Enum
+    {
+        var idx = (int)(object)expectedIndex;
+        var internalName = expectedIndex.ToString();
+        if (Configs.Count != idx)
+            throw new ArgumentException($"Unexpected index value for {internalName}: expected {idx}, cur size {Configs.Count}");
+        Configs.Add(new StrategyConfigFloat(internalName, displayName, minValue, maxValue, uiPriority));
+    }
+
+    public void DefineInt<Index>(Index expectedIndex, string displayName = "", long minValue = 0, long maxValue = long.MaxValue, float uiPriority = 0) where Index : Enum
+    {
+        var idx = (int)(object)expectedIndex;
+        var internalName = expectedIndex.ToString();
+        if (Configs.Count != idx)
+            throw new ArgumentException($"Unexpected index value for {internalName}: expected {idx}, cur size {Configs.Count}");
+        Configs.Add(new StrategyConfigInt(internalName, displayName, minValue, maxValue, uiPriority));
     }
 }
 

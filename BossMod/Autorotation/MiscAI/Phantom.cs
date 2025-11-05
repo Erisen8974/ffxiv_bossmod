@@ -65,7 +65,7 @@ public sealed class PhantomActions(RotationModuleManager manager, Actor player) 
         def.Define(Tracks.PhantomOracleJudgment).As<PhantomEnabled>("Judgement", "Oracle: Use Phantom Judgment")
         .AddOption(PhantomEnabled.Off, "Disabled")
         .AddOption(PhantomEnabled.On, "Enabled")
-        .AddOption(PhantomEnabled.Fallback, "FallbackOnly", "Use only if HP is too low for Starfall")
+        .AddOption(PhantomEnabled.Fallback, "Use only if HP is too low for Starfall")
         .AddAssociatedActions(
             PhantomID.Predict,
             PhantomID.PhantomJudgment
@@ -73,7 +73,7 @@ public sealed class PhantomActions(RotationModuleManager manager, Actor player) 
         def.Define(Tracks.PhantomOracleClensing).As<PhantomEnabled>("Cleansing", "Oracle: Use Cleansing")
         .AddOption(PhantomEnabled.Off, "Disabled")
         .AddOption(PhantomEnabled.On, "Enabled")
-        .AddOption(PhantomEnabled.Fallback, "FallbackOnly", "Use only if HP is too low for Starfall")
+        .AddOption(PhantomEnabled.Fallback, "Use only if HP is too low for Starfall")
         .AddAssociatedActions(
             PhantomID.Predict,
             PhantomID.Cleansing
@@ -81,22 +81,22 @@ public sealed class PhantomActions(RotationModuleManager manager, Actor player) 
         def.Define(Tracks.PhantomOracleBlessing).As<PhantomEnabled>("Blessing", "Oracle: Use Blessing")
         .AddOption(PhantomEnabled.Off, "Disabled")
         .AddOption(PhantomEnabled.On, "Enabled")
-        .AddOption(PhantomEnabled.Fallback, "FallbackOnly", "Use only if HP is too low for Starfall")
+        .AddOption(PhantomEnabled.Fallback, "Use only if HP is too low for Starfall")
         .AddAssociatedActions(
             PhantomID.Predict,
             PhantomID.Blessing
         );
         def.Define(Tracks.PhantomOracleStarfall).As<PhantomEnabled>("Starfall", "Oracle: Use Starfall")
         .AddOption(PhantomEnabled.Off, "Disabled")
-        .AddOption(PhantomEnabled.On, "Enabled", "Use always, may cause death")
-        .AddOption(PhantomEnabled.Fallback, "WhenSafe", "Use only if HP is full")
+        .AddOption(PhantomEnabled.On, "Use always, may cause death")
+        .AddOption(PhantomEnabled.Fallback, "Use only if HP is full")
         .AddAssociatedActions(
             PhantomID.Predict,
             PhantomID.Starfall
         );
         def.Define(Tracks.PhantomOracleRejuvination).As<PhantomEnabled>("Rejuvination", "Oracle: Use Rejuvination")
         .AddOption(PhantomEnabled.Off, "Disabled")
-        .AddOption(PhantomEnabled.On, "Enabled", "Use when damaged")
+        .AddOption(PhantomEnabled.On, "Use when damaged")
         .AddAssociatedActions(
             PhantomID.PhantomRejuvenation
         );
@@ -109,8 +109,8 @@ public sealed class PhantomActions(RotationModuleManager manager, Actor player) 
         );
         def.Define(Tracks.PhantomGeomancerBuffs).As<PhantomEnabled>("BattleBell", "Geomancer: Use Battle Bell and Ringing Respite")
         .AddOption(PhantomEnabled.Off, "Disabled")
-        .AddOption(PhantomEnabled.On, "Enabled", "Use on self")
-        .AddOption(PhantomEnabled.Fallback, "FallbackOnly", "Use on main tank if available, otherwise use on self")
+        .AddOption(PhantomEnabled.On, "Use on self")
+        .AddOption(PhantomEnabled.Fallback, "Use on main tank if available, otherwise use on self")
         .AddAssociatedActions(
             PhantomID.BattleBell,
             PhantomID.RingingRespite

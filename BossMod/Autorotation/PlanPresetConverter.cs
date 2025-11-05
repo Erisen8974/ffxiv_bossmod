@@ -125,8 +125,67 @@ public static class PlanPresetConverter
             return j;
         });
 
+        res.Converters.Add((j, _, _) =>
+        {
+            var optionRenames = Utils.LoadFromAssembly<List<OptionRename>>("BossMod.Autorotation.OptionRenames.json");
+
+            foreach (var m in EnumerateEntriesModules(j, plan))
+            {
+                foreach (var (modName, opts) in m)
+                {
+                    if (plan)
+                    {
+                        foreach (var (trackName, entries) in opts!.AsObject())
+                        {
+                            if (trackName == "_defaults")
+                            {
+                                foreach (var (defName, defNode) in entries!.AsObject())
+                                {
+                                    var defVal = defNode!.GetValue<string>()!;
+                                    if (optionRenames.FirstOrNull(r => r.Module == modName && r.Option == defName && r.Before == defVal) is { } rename)
+                                        defNode.ReplaceWith(rename.After);
+                                }
+                                continue;
+                            }
+
+                            foreach (var entry in entries!.AsArray())
+                            {
+                                var optName = entry!["Option"]!.GetValue<string>()!;
+                                if (optionRenames.FirstOrNull(r => r.Module == modName && r.Option == trackName && r.Before == optName) is { } rename)
+                                    entry["Option"] = rename.After;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var optsArray = opts!.AsArray();
+                        foreach (var optsNode in optsArray)
+                        {
+                            var optsObject = optsNode!.AsObject()!;
+
+                            if (optsObject.TryGetPropertyValue("Track", out var trackName))
+                            {
+                                var tn = trackName!.GetValue<string>()!;
+                                if (optsObject.TryGetPropertyValue("Option", out var optName))
+                                {
+                                    var on = optName!.GetValue<string>()!;
+
+                                    if (optionRenames.FirstOrNull(r => r.Module == modName && r.Option == tn && r.Before == on) is { } rename)
+                                        optsObject["Option"] = rename.After;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return j;
+        });
+
         return res;
     }
+
+    record struct OptionRename(string Module, string Option, string Before, string After);
 
     // returns always 1 element for plans, or multiple (1 per preset) for preset database
     private static IEnumerable<JsonObject> EnumerateEntriesModules(JsonNode root, bool plan)

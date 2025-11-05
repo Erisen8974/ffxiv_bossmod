@@ -78,6 +78,7 @@
     <ProjectReference Include="..\CodeAnalysis\CodeAnalysis.csproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
       <OutputItemType>Analyzer</OutputItemType>
+      <PrivateAssets>All</PrivateAssets>
     </ProjectReference>
     <Reference Include="Dalamud">
       <HintPath>$(DalamudLibPath)Dalamud.dll</HintPath>
@@ -121,9 +122,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <EmbeddedResource Include="Modules\**\*.json" />
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <EmbeddedResource Include="Autorotation\OptionRenames.json" />
     <EmbeddedResource Include="Pathfinding\ObstacleMaps\*" />
   </ItemGroup>
 </Project>
